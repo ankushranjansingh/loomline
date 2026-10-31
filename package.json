@@ -1,7 +1,7 @@
 {
   "name": "loomline",
   "version": "1.0.0",
-  "description": "Textile mill simulation: orders, production, inventory, procurement and what-if scenarios",
+  "description": "Textile factory simulation: orders, production, inventory, procurement and what-if scenarios",
   "private": true,
   "scripts": {
     "build": "sh build.sh",

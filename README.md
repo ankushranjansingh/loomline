@@ -1,6 +1,6 @@
-# Loomline: textile mill simulator
+# Loomline: textile factory simulator
 
-Daily-step simulation of a textile mill: customer orders, production planning (weaving, dyeing,
+Daily-step simulation of a textile factory: customer orders, production planning (weaving, dyeing,
 finishing, packing), raw material and consumable inventory, procurement, and what-if scenarios.
 Ships with demo data; the plant's own numbers can be entered in the app.
 

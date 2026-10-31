@@ -1,4 +1,4 @@
-/* Loomline simulation engine: daily-step model of a textile mill.
+/* Loomline simulation engine: daily-step model of a textile factory.
    Orders -> material release (BOM) -> Weaving -> Dyeing -> Finishing -> Packing -> Shipped.
    Raw materials and consumables follow (s,S) replenishment with supplier lead-time variability.
    All randomness is hash-keyed by (seed, stream, day, index) so scenarios share the same demand

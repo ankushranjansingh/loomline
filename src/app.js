@@ -24,7 +24,7 @@
   /* ---------------- state ---------------- */
   const UI = { tab: 'overview', day: 90, playing: false, timer: null, cfg: null, sim: null, base: null, ser: null, isBase: true,
     oFilter: 'all', oProd: 'all', poFilter: 'all', cmp: { key: '', data: null, busy: false }, lev: { key: '', data: null, busy: false },
-    draft: null, dataError: '' };
+    draft: null, dataError: '', sub: 'orders' };
   UI.cfg = Object.assign({}, E.DEFAULTS);
   UI.cfg.cap = Object.assign({}, E.DEFAULTS.cap);
 
@@ -230,18 +230,20 @@
   }
 
   /* ---------------- views ---------------- */
-  function kpiTiles(kp, kb) {
+  function kpiTiles(kp, kb, compact) {
     const T = (l, v, s, dl) => `<div class="kpi"><label>${l}</label><div class="v">${v}</div><div class="s">${s}</div>${dl}</div>`;
-    return `<div class="kpis">` +
-      T('On-time delivery', kp.otif == null ? 'n/a' : n1(kp.otif) + '%', kp.elig ? `${n0(kp.elig)} orders fell due` : 'No orders due yet', delta(kp.otif, kb.otif, { higherBetter: true, fmt: v => n1(v) + ' pts' })) +
-      T('Orders shipped', n0(kp.shipN), `of ${n0(kp.recvN)} received, ${n0(kp.openN)} open`, delta(kp.shipN, kb.shipN, { higherBetter: true, eps: 0.5, fmt: v => n0(v) })) +
-      T('Open order book', n0(kp.awaitM + kp.prodM) + ' m', `${n0(kp.awaitM)} m awaiting material`, delta(kp.awaitM + kp.prodM, kb.awaitM + kb.prodM, { eps: 100, fmt: v => n0(v) + ' m' })) +
-      T('Avg lead time', kp.lead == null ? 'n/a' : n1(kp.lead) + ' d', `${n0(kp.lateOpen)} open orders overdue`, delta(kp.lead, kb.lead, { fmt: v => n1(v) + ' d' })) +
-      T('Stock on hand', inr(kp.invValue), `${n0(kp.stockoutDays)} material-short item-days`, delta(kp.invValue, kb.invValue, { neutral: true, eps: 1000, fmt: v => inr(v) })) +
-      T('Contribution', inr(kp.contribution), `on ${inr(kp.revenue)} shipped revenue`, delta(kp.contribution, kb.contribution, { higherBetter: true, eps: 1000, fmt: v => inr(v) })) +
-      T('Throughput', n0(kp.throughput) + ' m/day', 'fabric shipped per calendar day', delta(kp.throughput, kb.throughput, { higherBetter: true, eps: 20, fmt: v => n0(v) + ' m/day' })) +
-      T('Stock turns', kp.turns == null ? 'n/a' : n1(kp.turns) + ' /yr', 'yearly material use over average stock', delta(kp.turns, kb.turns, { higherBetter: true, eps: 0.1, fmt: v => n1(v) })) +
-      `</div>`;
+    const tiles = {
+      otif: T('On-time delivery', kp.otif == null ? 'n/a' : n1(kp.otif) + '%', kp.elig ? `${n0(kp.elig)} orders fell due` : 'No orders due yet', delta(kp.otif, kb.otif, { higherBetter: true, fmt: v => n1(v) + ' pts' })),
+      shipped: T('Orders shipped', n0(kp.shipN), `of ${n0(kp.recvN)} received, ${n0(kp.openN)} open`, delta(kp.shipN, kb.shipN, { higherBetter: true, eps: 0.5, fmt: v => n0(v) })),
+      book: T('Open order book', n0(kp.awaitM + kp.prodM) + ' m', `${n0(kp.awaitM)} m awaiting material`, delta(kp.awaitM + kp.prodM, kb.awaitM + kb.prodM, { eps: 100, fmt: v => n0(v) + ' m' })),
+      lead: T('Avg lead time', kp.lead == null ? 'n/a' : n1(kp.lead) + ' d', `${n0(kp.lateOpen)} open orders overdue`, delta(kp.lead, kb.lead, { fmt: v => n1(v) + ' d' })),
+      stock: T('Stock on hand', inr(kp.invValue), `${n0(kp.stockoutDays)} material-short item-days`, delta(kp.invValue, kb.invValue, { neutral: true, eps: 1000, fmt: v => inr(v) })),
+      profit: T('Contribution', inr(kp.contribution), `on ${inr(kp.revenue)} shipped revenue`, delta(kp.contribution, kb.contribution, { higherBetter: true, eps: 1000, fmt: v => inr(v) })),
+      thru: T('Throughput', n0(kp.throughput) + ' m/day', 'fabric shipped per calendar day', delta(kp.throughput, kb.throughput, { higherBetter: true, eps: 20, fmt: v => n0(v) + ' m/day' })),
+      turns: T('Stock turns', kp.turns == null ? 'n/a' : n1(kp.turns) + ' /yr', 'yearly material use over average stock', delta(kp.turns, kb.turns, { higherBetter: true, eps: 0.1, fmt: v => n1(v) }))
+    };
+    const keys = compact ? ['otif', 'book', 'stock', 'profit'] : ['otif', 'shipped', 'book', 'lead', 'stock', 'profit', 'thru', 'turns'];
+    return `<div class="kpis">` + keys.map(k => tiles[k]).join('') + `</div>`;
   }
 
   function flowHTML(d, kp) {
@@ -268,7 +270,7 @@
     const d = UI.day, kp = E.kpiAt(UI.sim, d), kb = E.kpiAt(UI.base, d), ser = UI.ser, n = d + 1;
     const alerts = UI.sim.events.filter(e => e.day <= d && e.sev !== 'info').slice(-7).reverse();
     const html = `<div class="stack">
-      ${kpiTiles(kp, kb)}
+      ${kpiTiles(kp, kb, true)}
       <div class="card"><div class="card-h"><h3>Factory flow</h3><span class="sub">${dateStr(d)}${UI.sim.days[d].sunday ? ' · weekly off' : ''}</span></div>${flowHTML(d, kp)}</div>
       <div class="grid2">
         <div class="card"><div class="card-h"><h3>Open order book</h3>${legend([['In production', 'var(--c1)'], ['Awaiting material', 'var(--c2)']])}</div><div class="ch" id="chBook"></div><div class="sub" style="margin-top:6px">Meters of fabric ordered but not yet shipped. Click the chart to jump to a day.</div></div>
@@ -632,7 +634,13 @@
     return { html, after() {} };
   }
 
-  const VIEWS = { overview: ['Overview', viewOverview], orders: ['Orders', viewOrders], production: ['Production', viewProduction], inventory: ['Inventory', viewInventory], procurement: ['Procurement', viewProcurement], compare: ['Compare scenarios', viewCompare], report: ['Report', viewReport], data: ['Model data', viewData] };
+  const DETAIL = { orders: ['Orders', viewOrders], production: ['Production', viewProduction], inventory: ['Inventory', viewInventory], procurement: ['Procurement', viewProcurement] };
+  function viewDetails() {
+    const v = DETAIL[UI.sub][1]();
+    const nav = `<div class="chips subnav" role="group" aria-label="Detail view">${Object.keys(DETAIL).map(k => `<button class="chip" data-sub="${k}" aria-pressed="${UI.sub === k}">${DETAIL[k][0]}</button>`).join('')}</div>`;
+    return { html: nav + v.html, after: v.after };
+  }
+  const VIEWS = { overview: ['Overview', viewOverview], details: ['Details', viewDetails], compare: ['Compare scenarios', viewCompare], report: ['Report', viewReport], data: ['Your data', viewData] };
 
   function renderView() {
     const host = $('#view');
@@ -660,28 +668,29 @@
   }
 
   /* ---------------- settings panel ---------------- */
+  // adv: sliders shown under "More settings"; ag: heading above that slider
   const SL = [
-    { g: 'Run', k: 'horizon', l: 'Run length', min: 30, max: 180, step: 10, get: c => c.horizon, set: (c, v) => c.horizon = v, f: v => v + ' days' },
-    { g: 'Market and suppliers', k: 'demand', l: 'Customer demand', min: 60, max: 160, step: 5, get: c => Math.round(c.demand * 100), set: (c, v) => c.demand = v / 100, f: v => v + '% of plan' },
-    { k: 'supplierLT', l: 'Supplier lead time', min: 50, max: 250, step: 10, get: c => Math.round(c.supplierLT * 100), set: (c, v) => c.supplierLT = v / 100, f: v => v + '% of normal' },
+    { k: 'demand', l: 'Customer demand', min: 60, max: 160, step: 5, get: c => Math.round(c.demand * 100), set: (c, v) => c.demand = v / 100, f: v => v + '% of plan' },
     { k: 'lateProb', l: 'Deliveries that arrive late', min: 0, max: 40, step: 1, get: c => Math.round(c.lateProb * 100), set: (c, v) => c.lateProb = v / 100, f: v => v + '%' },
-    { g: 'Inventory policy', k: 'safetyDays', l: 'Safety stock', min: 0, max: 12, step: 1, get: c => c.safetyDays, set: (c, v) => c.safetyDays = v, f: v => v + ' days of cover' },
-    { g: 'Plant', k: 'breakdown', l: 'Machine breakdowns', min: 0, max: 15, step: 1, get: c => Math.round(c.breakdown * 100), set: (c, v) => c.breakdown = v / 100, f: v => v + '% per line per day' },
-    { g: 'Capacity', k: 'cap_weave', l: 'Weaving', min: 60, max: 150, step: 5, get: c => Math.round(c.cap.weave * 100), set: (c, v) => c.cap.weave = v / 100, f: v => v + '%' },
-    { k: 'cap_dye', l: 'Dyeing', min: 60, max: 150, step: 5, get: c => Math.round(c.cap.dye * 100), set: (c, v) => c.cap.dye = v / 100, f: v => v + '%' },
-    { k: 'cap_finish', l: 'Finishing', min: 60, max: 150, step: 5, get: c => Math.round(c.cap.finish * 100), set: (c, v) => c.cap.finish = v / 100, f: v => v + '%' },
-    { k: 'cap_pack', l: 'Packing', min: 60, max: 150, step: 5, get: c => Math.round(c.cap.pack * 100), set: (c, v) => c.cap.pack = v / 100, f: v => v + '%' }
+    { k: 'safetyDays', l: 'Safety stock', min: 0, max: 12, step: 1, get: c => c.safetyDays, set: (c, v) => c.safetyDays = v, f: v => v + ' days of cover' },
+    { k: 'breakdown', l: 'Machine breakdowns', min: 0, max: 15, step: 1, get: c => Math.round(c.breakdown * 100), set: (c, v) => c.breakdown = v / 100, f: v => v + '% per line per day' },
+    { adv: 1, ag: 'Run', k: 'horizon', l: 'Run length', min: 30, max: 180, step: 10, get: c => c.horizon, set: (c, v) => c.horizon = v, f: v => v + ' days' },
+    { adv: 1, ag: 'Suppliers', k: 'supplierLT', l: 'Supplier lead time', min: 50, max: 250, step: 10, get: c => Math.round(c.supplierLT * 100), set: (c, v) => c.supplierLT = v / 100, f: v => v + '% of normal' },
+    { adv: 1, ag: 'Capacity', k: 'cap_weave', l: 'Weaving', min: 60, max: 150, step: 5, get: c => Math.round(c.cap.weave * 100), set: (c, v) => c.cap.weave = v / 100, f: v => v + '%' },
+    { adv: 1, k: 'cap_dye', l: 'Dyeing', min: 60, max: 150, step: 5, get: c => Math.round(c.cap.dye * 100), set: (c, v) => c.cap.dye = v / 100, f: v => v + '%' },
+    { adv: 1, k: 'cap_finish', l: 'Finishing', min: 60, max: 150, step: 5, get: c => Math.round(c.cap.finish * 100), set: (c, v) => c.cap.finish = v / 100, f: v => v + '%' },
+    { adv: 1, k: 'cap_pack', l: 'Packing', min: 60, max: 150, step: 5, get: c => Math.round(c.cap.pack * 100), set: (c, v) => c.cap.pack = v / 100, f: v => v + '%' }
   ];
   function buildPanel() {
-    let h = `<h2>Scenarios</h2><div class="presets">${E.PRESETS.map(p => `<button class="preset" data-preset="${p.id}" aria-pressed="false"><b>${esc(p.name)}</b><small>${esc(p.desc)}</small></button>`).join('')}</div>`;
-    SL.forEach(s => {
-      if (s.g) h += `<h2>${s.g}</h2>`;
-      h += `<div class="ctl"><div class="ctl-h"><label for="sl_${s.k}">${s.l}</label><output id="o_${s.k}"></output></div><input type="range" id="sl_${s.k}" data-sl="${s.k}" min="${s.min}" max="${s.max}" step="${s.step}"></div>`;
-    });
+    const ctl = s => `<div class="ctl"><div class="ctl-h"><label for="sl_${s.k}">${s.l}</label><output id="o_${s.k}"></output></div><input type="range" id="sl_${s.k}" data-sl="${s.k}" min="${s.min}" max="${s.max}" step="${s.step}"></div>`;
+    let h = `<h2>Scenarios</h2><div class="presets">${E.PRESETS.map(p => `<button class="preset" data-preset="${p.id}" aria-pressed="false"><b>${esc(p.name)}</b><small>${esc(p.desc)}</small></button>`).join('')}</div><h2>Or adjust</h2>`;
+    SL.filter(s => !s.adv).forEach(s => { h += ctl(s); });
+    h += `<details class="adv"><summary>More settings</summary>`;
+    SL.filter(s => s.adv).forEach(s => { if (s.ag) h += `<h2>${s.ag}</h2>`; h += ctl(s); });
     h += `<h2>Production sequencing</h2><select class="sel" id="rule" aria-label="Production sequencing rule"><option value="edd">Earliest due date first</option><option value="fifo">First in, first out</option><option value="campaign">Campaign by product (fewer changeovers)</option></select>
       <h2>Randomness</h2><div class="row2"><input class="num" id="seed" type="number" min="1" max="9999" aria-label="Random seed"><button class="btn" id="reseed">New draw</button></div>
-      <div class="note">Same seed, same customer orders and breakdowns, so you can compare settings fairly.</div>
-      <h2>All settings</h2><button class="btn" id="reset" style="width:100%;justify-content:center">Reset to baseline</button>`;
+      <div class="note">Same seed, same customer orders and breakdowns, so you can compare settings fairly.</div></details>
+      <button class="btn" id="reset" style="width:100%;justify-content:center;margin-top:16px">Reset to baseline</button>`;
     $('#panel').innerHTML = h;
     syncPanel();
   }
@@ -706,6 +715,7 @@
     const t = e.target.closest('button,[data-tab]'); if (!t) return;
     if (t.dataset.tab) { UI.tab = t.dataset.tab; renderTabs(); renderView(); return; }
     if (t.dataset.preset) { const c = E.presetCfg(t.dataset.preset, Object.assign({}, E.DEFAULTS, { horizon: UI.cfg.horizon, seed: UI.cfg.seed })); c.cap = Object.assign({}, E.DEFAULTS.cap, c.cap); UI.cfg = c; changed(); return; }
+    if (t.dataset.sub) { UI.sub = t.dataset.sub; renderView(); return; }
     if (t.dataset.ofilter) { UI.oFilter = t.dataset.ofilter; renderView(); return; }
     if (t.dataset.pofilter) { UI.poFilter = t.dataset.pofilter; renderView(); return; }
     if (t.id === 'play') { UI.playing ? stopPlay() : startPlay(); return; }
