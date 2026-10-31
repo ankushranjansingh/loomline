@@ -1,0 +1,31 @@
+<header class="top">
+  <div class="wrap">
+    <div class="top-row">
+      <div class="brand">
+        <svg width="30" height="30" viewBox="0 0 28 28" aria-hidden="true"><rect width="28" height="28" rx="7" fill="var(--accent)"/><g stroke="var(--accent-ink)" stroke-width="2.4" stroke-linecap="round"><path d="M7 9h14M7 14h14M7 19h14" opacity=".5"/><path d="M10 6v16M18 6v16"/></g></svg>
+        <div><b>Loomline</b><span>Textile mill simulator</span></div>
+      </div>
+      <span class="demo-chip" id="dataChip">Demo data</span>
+      <span class="spacer"></span>
+      <button class="btn only-m" id="btnSettings" aria-expanded="false" aria-controls="panel">Scenario settings</button>
+    </div>
+    <div class="scrub">
+      <button class="play" id="play" aria-label="Play simulation"><svg viewBox="0 0 14 14" id="playIcon"><path d="M3 1.5v11l9-5.5z"/></svg></button>
+      <input type="range" id="dayRange" min="0" max="90" value="90" step="1" aria-label="Simulation day">
+      <div class="scrub-label"><b id="dayDate">-</b><span id="dayN">-</span></div>
+    </div>
+  </div>
+</header>
+<div class="wrap">
+  <div class="layout">
+    <aside class="panel" id="panel" aria-label="Scenario settings"></aside>
+    <main>
+      <nav class="tabs" role="tablist" id="tabs"></nav>
+      <section id="view" aria-live="off"></section>
+    </main>
+  </div>
+</div>
+
+<input type="file" id="fileScenario" accept=".json,application/json" hidden>
+<input type="file" id="fileData" accept=".json,application/json" hidden>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>

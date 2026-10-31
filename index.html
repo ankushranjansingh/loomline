@@ -1,0 +1,1496 @@
+<title>Loomline Mill Simulator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout concept: sticky run bar with a day scrubber over a settings rail and a tabbed workspace.
+   Palette: denim-indigo accent on blue-biased neutrals; chart hues come from the validated categorical set. */
+:root {
+  --bg: #f2f4f9; --surface: #ffffff; --surface-2: #f7f8fc; --ink: #141a2b; --ink-2: #444e66; --ink-3: #66708c;
+  --line: #dfe3ed; --line-2: #ecf0f6; --accent: #2b4a9a; --accent-ink: #ffffff; --accent-soft: #e6ebf8;
+  --c1: #2a78d6; --c2: #eb6834; --c3: #1baf7a; --c4: #eda100; --c5: #e87ba4; --c6: #6250d6;
+  --good: #0ca30c; --warn: #fab219; --crit: #d03b3b;
+  --p-good-fg: #0b6b0b; --p-good-bg: #e0f2e0; --p-warn-fg: #7a5200; --p-warn-bg: #fdefc9;
+  --p-crit-fg: #a52a2a; --p-crit-bg: #fbe3e3; --p-info-fg: #2b4a9a; --p-info-bg: #e6ebf8; --p-neu-fg: #444e66; --p-neu-bg: #eaedf4;
+  --shadow: 0 1px 2px rgba(20,26,43,.05), 0 6px 18px rgba(20,26,43,.05);
+  --f-body: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --f-mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1220; --surface: #161b2c; --surface-2: #1b2136; --ink: #eceef6; --ink-2: #b6bcd0; --ink-3: #8f97ae;
+    --line: #272e46; --line-2: #202740; --accent: #8aa4f2; --accent-ink: #0e1220; --accent-soft: #212c52;
+    --c1: #3987e5; --c2: #d95926; --c3: #199e70; --c4: #c98500; --c5: #d55181; --c6: #9085e9;
+    --p-good-fg: #5ed05e; --p-good-bg: #14301a; --p-warn-fg: #f3c04b; --p-warn-bg: #3a2d0c;
+    --p-crit-fg: #ff8f8f; --p-crit-bg: #401919; --p-info-fg: #a3b6f6; --p-info-bg: #212c52; --p-neu-fg: #b6bcd0; --p-neu-bg: #252c44;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.25); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1220; --surface: #161b2c; --surface-2: #1b2136; --ink: #eceef6; --ink-2: #b6bcd0; --ink-3: #8f97ae;
+  --line: #272e46; --line-2: #202740; --accent: #8aa4f2; --accent-ink: #0e1220; --accent-soft: #212c52;
+  --c1: #3987e5; --c2: #d95926; --c3: #199e70; --c4: #c98500; --c5: #d55181; --c6: #9085e9;
+  --p-good-fg: #5ed05e; --p-good-bg: #14301a; --p-warn-fg: #f3c04b; --p-warn-bg: #3a2d0c;
+  --p-crit-fg: #ff8f8f; --p-crit-bg: #401919; --p-info-fg: #a3b6f6; --p-info-bg: #212c52; --p-neu-fg: #b6bcd0; --p-neu-bg: #252c44;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.25); color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.45 var(--f-body); -webkit-font-smoothing: antialiased; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); background: var(--surface); z-index: 30; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+/* run bar */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--surface); border-bottom: 1px solid var(--line); }
+.top-row { display: flex; align-items: center; gap: 12px; padding-block: 10px 6px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand b { font-size: 17px; font-weight: 700; letter-spacing: -.01em; display: block; line-height: 1.1; }
+.brand span { color: var(--ink-3); font-size: 12px; }
+.demo-chip { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; padding: 3px 8px; border-radius: 6px; background: var(--p-warn-bg); color: var(--p-warn-fg); }
+.spacer { flex: 1; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 7px 12px; font-weight: 550; display: inline-flex; align-items: center; gap: 8px; }
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.primary:hover { filter: brightness(1.08); }
+.only-m { display: none; }
+.scrub { display: flex; align-items: center; gap: 12px; padding-block: 4px 10px; }
+.play { width: 36px; height: 36px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; flex: none; }
+.play svg { width: 14px; height: 14px; fill: currentColor; }
+.scrub input[type=range] { flex: 1; min-width: 0; accent-color: var(--accent); height: 28px; }
+.scrub-label { text-align: right; min-width: 118px; line-height: 1.2; }
+.scrub-label b { display: block; font-size: 14px; font-variant-numeric: tabular-nums; }
+.scrub-label span { color: var(--ink-3); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+/* layout */
+.layout { display: grid; grid-template-columns: 296px minmax(0, 1fr); gap: 20px; padding-block: 18px 40px; align-items: start; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 112px); max-height: calc(100vh - 130px); overflow: auto; }
+.panel h2 { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); margin: 18px 0 8px; font-weight: 650; }
+.panel h2:first-child { margin-top: 0; }
+.presets { display: flex; flex-direction: column; gap: 6px; }
+.preset { text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 8px 10px; }
+.preset small { display: block; color: var(--ink-3); font-size: 12px; line-height: 1.3; margin-top: 1px; }
+.preset[aria-pressed=true] { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+.preset b { font-weight: 600; }
+.ctl { margin: 10px 0 12px; }
+.ctl-h { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.ctl-h output { font-variant-numeric: tabular-nums; color: var(--ink-2); font-weight: 600; }
+.ctl input[type=range] { width: 100%; accent-color: var(--accent); margin: 2px 0 0; }
+.sel, .num { width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 7px 9px; }
+.row2 { display: flex; gap: 8px; }
+.note { color: var(--ink-3); font-size: 12px; margin-top: 6px; }
+
+/* tabs */
+.tabs { display: flex; gap: 2px; overflow-x: auto; border-bottom: 1px solid var(--line); margin-bottom: 16px; scrollbar-width: thin; }
+.tab { border: 0; background: none; padding: 10px 14px; color: var(--ink-3); font-weight: 600; border-bottom: 2px solid transparent; white-space: nowrap; margin-bottom: -1px; }
+.tab:hover { color: var(--ink); }
+.tab[aria-selected=true] { color: var(--ink); border-bottom-color: var(--accent); }
+
+/* cards and tiles */
+.stack { display: flex; flex-direction: column; gap: 16px; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; min-width: 0; }
+.card-h { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.card h3 { font-size: 14px; font-weight: 650; margin: 0; }
+.card .sub { color: var(--ink-3); font-size: 12px; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--ink-2); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 12px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 14px 12px; min-width: 0; }
+.kpi label { display: block; font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+.kpi .v { white-space: nowrap; font-size: 24px; font-weight: 650; letter-spacing: -.02em; margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
+.kpi .s { font-size: 12px; color: var(--ink-3); }
+.dl { display: inline-block; font-size: 12px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.dl.good { color: var(--p-good-fg); } .dl.bad { color: var(--p-crit-fg); } .dl.neu { color: var(--ink-2); }
+
+/* factory flow */
+.flow { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.cell { border: 1px solid var(--line); border-radius: 10px; padding: 11px; background: var(--surface-2); min-width: 0; position: relative; }
+.cell.hot { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.cell .nm { font-size: 12px; font-weight: 650; display: flex; justify-content: space-between; gap: 6px; }
+.cell .nm em { font-style: normal; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.cell .big { font-size: 20px; font-weight: 650; margin: 6px 0 0; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.cell .big small { font-size: 12px; color: var(--ink-3); font-weight: 500; }
+.cell .sm { font-size: 12px; color: var(--ink-3); margin: 2px 0 8px; }
+.bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; margin-bottom: 8px; }
+.bar i { display: block; height: 100%; border-radius: 3px; }
+
+/* pills and chips */
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pill.good { background: var(--p-good-bg); color: var(--p-good-fg); } .pill.warn { background: var(--p-warn-bg); color: var(--p-warn-fg); }
+.pill.crit { background: var(--p-crit-bg); color: var(--p-crit-fg); } .pill.info { background: var(--p-info-bg); color: var(--p-info-fg); }
+.pill.neu { background: var(--p-neu-bg); color: var(--p-neu-fg); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 12px; }
+.chip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 12px; font-size: 13px; font-weight: 550; color: var(--ink-2); }
+.chip[aria-pressed=true] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
+/* tables */
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.tbl.tall { max-height: 520px; overflow-y: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); font-weight: 650; padding: 9px 12px; background: var(--surface-2); position: sticky; top: 0; z-index: 1; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 8px 12px; border-bottom: 1px solid var(--line-2); white-space: nowrap; vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+td.id { font-family: var(--f-mono); font-size: 12px; }
+tr.grp td { background: var(--surface-2); font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); font-weight: 650; }
+.dots { display: inline-flex; gap: 4px; }
+.dots i { width: 14px; height: 8px; border-radius: 2px; background: var(--line); display: block; }
+.dots i.cur { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-3); }
+.mini { display: inline-block; width: 48px; height: 6px; background: var(--line); border-radius: 3px; vertical-align: middle; margin-right: 8px; overflow: hidden; }
+.mini i { display: block; height: 100%; background: var(--accent); }
+table.cmp th { white-space: normal; vertical-align: bottom; }
+td.best { font-weight: 700; color: var(--accent); }
+
+/* stage cards */
+.stages { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+.stage { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 14px; }
+.stage h4 { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.stage h4 i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.stage dl { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; margin: 10px 0 0; font-size: 13px; }
+.stage dt { color: var(--ink-3); } .stage dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.feed { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.feed li { display: grid; grid-template-columns: 74px auto 1fr; gap: 10px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--line-2); }
+.feed li:last-child { border-bottom: 0; }
+.feed time { color: var(--ink-3); font-size: 12px; font-variant-numeric: tabular-nums; }
+.empty { color: var(--ink-3); padding: 12px 0; }
+
+/* charts */
+.ch { position: relative; width: 100%; }
+.ch svg { display: block; width: 100%; height: auto; overflow: visible; }
+.gl { stroke: var(--line-2); stroke-width: 1; }
+.base { stroke: var(--line); stroke-width: 1; }
+.ax { fill: var(--ink-3); font-size: 11px; font-family: var(--f-body); font-variant-numeric: tabular-nums; }
+.axb { fill: var(--ink-2); font-size: 11px; font-weight: 600; font-family: var(--f-body); }
+.mk { stroke: var(--ink-2); stroke-width: 1; stroke-dasharray: 3 3; }
+.rf { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 5 4; }
+.hv { stroke: var(--ink-3); stroke-width: 1; }
+.tip { position: absolute; z-index: 5; pointer-events: none; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: var(--shadow); min-width: 140px; }
+.tip b { display: block; margin-bottom: 4px; }
+.tip div { display: flex; justify-content: space-between; gap: 14px; align-items: center; }
+.tip i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
+.tip span { font-variant-numeric: tabular-nums; font-weight: 600; }
+.loading { padding: 28px; text-align: center; color: var(--ink-3); }
+
+
+/* report, data editor, notices */
+.demo-chip.custom { background: var(--p-info-bg); color: var(--p-info-fg); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.rng { font-size: 11px; color: var(--ink-3); font-weight: 500; }
+td.gd { color: var(--p-good-fg); font-weight: 600; } td.bd { color: var(--p-crit-fg); font-weight: 600; }
+table.wrapc td { white-space: normal; }
+tr.tot td { font-weight: 700; border-top: 1px solid var(--line); background: var(--surface-2); }
+.finds { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.finds li { display: grid; grid-template-columns: 92px 1fr; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line-2); align-items: start; }
+.finds li:last-child { border-bottom: 0; }
+.finds p { margin: 2px 0 0; color: var(--ink-2); }
+details summary { cursor: pointer; font-weight: 650; }
+.doc h4 { margin: 16px 0 6px; font-size: 13px; } .doc ul { margin: 0; padding-left: 20px; color: var(--ink-2); } .doc li { margin: 4px 0; } .doc p { color: var(--ink-2); }
+.lead { margin: 0 0 12px; color: var(--ink-2); max-width: 78ch; }
+.err { background: var(--p-crit-bg); color: var(--p-crit-fg); border-radius: 8px; padding: 9px 12px; margin-bottom: 12px; font-weight: 600; }
+.data td .sub { font-size: 11px; color: var(--ink-3); }
+input.ci { width: 112px; padding: 5px 8px; text-align: right; font-variant-numeric: tabular-nums; }
+input.ci.txt { width: 190px; text-align: left; }
+textarea.num { font: inherit; resize: vertical; }
+.toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 50; background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; box-shadow: var(--shadow); font-weight: 600; max-width: min(92vw, 520px); }
+.toast.bad { background: var(--crit); color: #fff; }
+.toast[hidden] { display: none; }
+@media print {
+  body { background: #fff; }
+  .top, .panel, .tabs, .no-print, .toast, body::before { display: none !important; }
+  .layout { display: block; padding: 0; } .wrap { max-width: none; padding: 0; }
+  .card, .kpi { box-shadow: none; break-inside: avoid; }
+  .grid2 { grid-template-columns: 1fr 1fr; }
+  details { display: block; } details > summary { display: none; }
+  .tbl, .tbl.tall { overflow: visible; max-height: none; }
+}
+
+@media (max-width: 960px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .panel { position: static; max-height: none; display: none; }
+  .panel.open { display: block; }
+  .only-m { display: inline-flex; }
+  .grid2 { grid-template-columns: minmax(0, 1fr); }
+  .flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .scrub-label { min-width: 96px; }
+  .feed li { grid-template-columns: 62px auto; } .feed li > span:last-child { grid-column: 1 / -1; }
+  .kpi .v { font-size: 22px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+<header class="top">
+  <div class="wrap">
+    <div class="top-row">
+      <div class="brand">
+        <svg width="30" height="30" viewBox="0 0 28 28" aria-hidden="true"><rect width="28" height="28" rx="7" fill="var(--accent)"/><g stroke="var(--accent-ink)" stroke-width="2.4" stroke-linecap="round"><path d="M7 9h14M7 14h14M7 19h14" opacity=".5"/><path d="M10 6v16M18 6v16"/></g></svg>
+        <div><b>Loomline</b><span>Textile mill simulator</span></div>
+      </div>
+      <span class="demo-chip" id="dataChip">Demo data</span>
+      <span class="spacer"></span>
+      <button class="btn only-m" id="btnSettings" aria-expanded="false" aria-controls="panel">Scenario settings</button>
+    </div>
+    <div class="scrub">
+      <button class="play" id="play" aria-label="Play simulation"><svg viewBox="0 0 14 14" id="playIcon"><path d="M3 1.5v11l9-5.5z"/></svg></button>
+      <input type="range" id="dayRange" min="0" max="90" value="90" step="1" aria-label="Simulation day">
+      <div class="scrub-label"><b id="dayDate">-</b><span id="dayN">-</span></div>
+    </div>
+  </div>
+</header>
+<div class="wrap">
+  <div class="layout">
+    <aside class="panel" id="panel" aria-label="Scenario settings"></aside>
+    <main>
+      <nav class="tabs" role="tablist" id="tabs"></nav>
+      <section id="view" aria-live="off"></section>
+    </main>
+  </div>
+</div>
+
+<input type="file" id="fileScenario" accept=".json,application/json" hidden>
+<input type="file" id="fileData" accept=".json,application/json" hidden>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<script>
+/* Loomline simulation engine: daily-step model of a textile mill.
+   Orders -> material release (BOM) -> Weaving -> Dyeing -> Finishing -> Packing -> Shipped.
+   Raw materials and consumables follow (s,S) replenishment with supplier lead-time variability.
+   All randomness is hash-keyed by (seed, stream, day, index) so scenarios share the same demand
+   and machine luck (common random numbers) and differences come only from the settings changed. */
+(function (root) {
+  'use strict';
+
+  /* ---------- Master data (dummy) ---------- */
+  const STAGES = [
+    { id: 'weave',  name: 'Weaving',   cap: 10800, changeover: 220, conv: 9 },
+    { id: 'dye',    name: 'Dyeing',    cap: 10200, changeover: 350, conv: 15 },
+    { id: 'finish', name: 'Finishing', cap: 11800, changeover: 120, conv: 6 },
+    { id: 'pack',   name: 'Packing',   cap: 12500, changeover: 0,   conv: 2 }
+  ];
+
+  const PRODUCTS = [
+    { id: 'poplin', name: 'Poplin 40s',        short: 'Poplin',      price: 168, share: 0.30, size: [1500, 5000], lead: 12, bom: { y40: 16.5, starch: 0.8, reac: 0.55 } },
+    { id: 'denim',  name: 'Denim 10 oz',       short: 'Denim',       price: 292, share: 0.30, size: [2000, 7000], lead: 15, bom: { y10: 52, starch: 2.5, indigo: 1.6 } },
+    { id: 'twill',  name: 'Twill Workwear',    short: 'Twill',       price: 214, share: 0.22, size: [1500, 5500], lead: 13, bom: { y20: 37, starch: 1.8, reac: 1.0 } },
+    { id: 'pc',     name: 'Poly-Cotton Blend', short: 'Poly-cotton', price: 142, share: 0.18, size: [1500, 4500], lead: 12, bom: { ypc: 22.5, starch: 1.1, reac: 0.7 } }
+  ];
+
+  // kind raw: consumed per 100 m through BOM. kind cons: consumed per 100 m processed at a stage.
+  const ITEMS = [
+    { id: 'y40',     name: 'Cotton Yarn 40s',      kind: 'raw',  unit: 'kg', cost: 335, lot: 2500,  lt: [6, 1.5],  cover: 9,  supplier: 'Kaveri Yarn Mills' },
+    { id: 'y10',     name: 'Cotton Yarn 10s',      kind: 'raw',  unit: 'kg', cost: 248, lot: 6000,  lt: [7, 2],    cover: 9,  supplier: 'Kaveri Yarn Mills' },
+    { id: 'y20',     name: 'Cotton Yarn 20s',      kind: 'raw',  unit: 'kg', cost: 272, lot: 4000,  lt: [6, 1.5],  cover: 9,  supplier: 'Aarav Cotton Traders' },
+    { id: 'ypc',     name: 'Poly-Cotton Yarn 30s', kind: 'raw',  unit: 'kg', cost: 236, lot: 2500,  lt: [8, 2],    cover: 9,  supplier: 'Aarav Cotton Traders' },
+    { id: 'reac',    name: 'Reactive Dye',         kind: 'raw',  unit: 'kg', cost: 640, lot: 300,   lt: [10, 2.5], cover: 14, supplier: 'Coastal Dyes & Intermediates' },
+    { id: 'indigo',  name: 'Indigo Dye',           kind: 'raw',  unit: 'kg', cost: 880, lot: 400,   lt: [12, 3],   cover: 14, supplier: 'Coastal Dyes & Intermediates' },
+    { id: 'starch',  name: 'Sizing Starch',        kind: 'raw',  unit: 'kg', cost: 52,  lot: 1000,  lt: [5, 1],    cover: 12, supplier: 'ChemSource Pvt Ltd' },
+    { id: 'lube',    name: 'Loom Lubricant',       kind: 'cons', unit: 'L',  cost: 215, lot: 200,   lt: [4, 1],    cover: 15, supplier: 'LubeTech Industrial', stage: 0, rate: 0.35 },
+    { id: 'caustic', name: 'Caustic Soda',         kind: 'cons', unit: 'kg', cost: 38,  lot: 4000,  lt: [4, 1],    cover: 10, supplier: 'ChemSource Pvt Ltd',  stage: 1, rate: 6.0 },
+    { id: 'salt',    name: 'Dyeing Salt',          kind: 'cons', unit: 'kg', cost: 14,  lot: 10000, lt: [5, 1.5],  cover: 10, supplier: 'ChemSource Pvt Ltd',  stage: 1, rate: 14 },
+    { id: 'soft',    name: 'Finishing Softener',   kind: 'cons', unit: 'L',  cost: 118, lot: 1500,  lt: [6, 1.5],  cover: 12, supplier: 'FinishChem Co',       stage: 2, rate: 3.2 },
+    { id: 'film',    name: 'Packing Film',         kind: 'cons', unit: 'kg', cost: 165, lot: 400,   lt: [5, 1],    cover: 12, supplier: 'PackWell Industries', stage: 3, rate: 0.9 }
+  ];
+  const IDX = {};
+  ITEMS.forEach((it, i) => { it.idx = i; IDX[it.id] = i; });
+
+  const CUSTOMERS = ['Northwind Apparel', 'Bluebell Garments', 'Crestline Uniforms', 'Meridian Fashions', 'Harbor & Pine', 'Sundial Textiles', 'Orchid Export House', 'Vantage Workwear', 'Juniper Denim Co.', 'Lakeshore Home Fabrics'];
+
+  // Global parameters (editable through setData)
+  const PARAMS = {
+    lambda: 2.1,       // orders per working day at demand 1.0
+    holdRate: 0.20,    // yearly carrying cost on inventory value
+    poFee: 2500,       // cost per purchase order
+    latePenaltyPerDay: 0.01, // share of order value per day late
+    latePenaltyCap: 0.15     // maximum penalty share
+  };
+  const START_DATE = Date.UTC(2026, 10, 2); // Mon 2 Nov 2026 = day 1
+
+  const DEFAULTS = {
+    horizon: 90, seed: 7, demand: 1, supplierLT: 1, lateProb: 0.08, safetyDays: 4,
+    cap: { weave: 1, dye: 1, finish: 1, pack: 1 }, breakdown: 0.04, rule: 'edd'
+  };
+
+  const PRESETS = [
+    { id: 'base',   name: 'Baseline',                 desc: 'Normal demand, reliable suppliers.', cfg: {} },
+    { id: 'surge',  name: 'Demand surge +25%',        desc: 'Orders arrive 25% faster than planned.', cfg: { demand: 1.25 } },
+    { id: 'fix',    name: 'Surge + Dyeing +20%',      desc: 'Same surge, with a dyeing capacity expansion.', cfg: { demand: 1.25, cap: { dye: 1.2 } } },
+    { id: 'supply', name: 'Supplier delays',          desc: 'Lead times 50% longer and 20% of deliveries run late.', cfg: { supplierLT: 1.5, lateProb: 0.2 } },
+    { id: 'break',  name: 'Machine breakdowns',       desc: 'Breakdowns three times as frequent on every stage.', cfg: { breakdown: 0.12 } },
+    { id: 'lean',   name: 'Lean stock',               desc: 'Safety stock cut to one day of cover.', cfg: { safetyDays: 1 } }
+  ];
+
+  /* ---------- Random numbers (hash keyed) ---------- */
+  function R(seed, k1, k2, k3) {
+    let h = (seed ^ 0x9e3779b9) | 0;
+    h = Math.imul(h ^ k1, 0x85ebca6b); h ^= h >>> 13;
+    h = Math.imul(h ^ k2, 0xc2b2ae35); h ^= h >>> 16;
+    h = Math.imul(h ^ k3, 0x27d4eb2f); h ^= h >>> 15;
+    h = Math.imul(h, 0x165667b1); h ^= h >>> 13;
+    return (h >>> 0) / 4294967296;
+  }
+  function normal(seed, k1, k2, k3) {
+    const u1 = Math.max(1e-9, R(seed, k1, k2, k3)), u2 = R(seed, k1 + 500, k2, k3);
+    return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  }
+  function poisson(lambda, u) {
+    if (lambda > 30) { // normal approximation keeps exp(-lambda) from underflowing for large demand
+      const z = Math.sqrt(2) * erfInv(2 * clamp(u, 1e-9, 1 - 1e-9) - 1);
+      return Math.max(0, Math.round(lambda + Math.sqrt(lambda) * z));
+    }
+    let k = 0, p = Math.exp(-lambda), c = p;
+    while (u > c && k < 200) { k++; p *= lambda / k; c += p; }
+    return k;
+  }
+  function erfInv(x) { // Giles-style approximation, accurate to ~1e-3 which is plenty for demand counts
+    const a = 0.147, ln = Math.log(1 - x * x), t = 2 / (Math.PI * a) + ln / 2;
+    return Math.sign(x) * Math.sqrt(Math.sqrt(t * t - ln / a) - t);
+  }
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+
+  /* ---------- Planning parameters ---------- */
+  function mergeCfg(u) {
+    const c = Object.assign({}, DEFAULTS, u || {});
+    c.cap = Object.assign({}, DEFAULTS.cap, (u && u.cap) || {});
+    c.horizon = clamp(Math.round(c.horizon), 14, 365);
+    return c;
+  }
+
+  function makePlan(cfg) {
+    const avgSize = PRODUCTS.reduce((a, p) => a + p.share * (p.size[0] + p.size[1]) / 2, 0);
+    const mPerCal = PARAMS.lambda * avgSize * 6 / 7;
+    return ITEMS.map(it => {
+      const use = it.kind === 'raw'
+        ? PRODUCTS.reduce((a, p) => a + p.share * mPerCal * (p.bom[it.id] || 0) / 100, 0)
+        : mPerCal * it.rate / 100;
+      const rop = use * (it.lt[0] + cfg.safetyDays);
+      const S = rop + use * it.cover;
+      return { use, rop, S, init: rop + use * it.cover * 0.5 };
+    });
+  }
+
+  function dateOf(day) { return new Date(START_DATE + (day - 1) * 86400000); }
+  const isSunday = day => ((day - 1) % 7 + 7) % 7 === 6;
+
+  /* ---------- Simulation ---------- */
+  function simulate(userCfg) {
+    const cfg = mergeCfg(userCfg), H = cfg.horizon, seed = cfg.seed | 0;
+    const plan = makePlan(cfg), nI = ITEMS.length, nS = STAGES.length;
+    const onHand = plan.map(p => p.init), onOrder = new Array(nI).fill(0);
+    const orders = [], pos = [], events = [], days = [];
+    const stg = STAGES.map(() => ({ last: null, down: 0 }));
+    const cum = { rev: 0, cogs: 0, mat: 0, conv: 0, cons: 0, hold: 0, ord: 0, pen: 0 };
+    let prevShort = new Array(nI).fill(0);
+    let soSeq = 10240, poSeq = 4400;
+    const invValue = () => onHand.reduce((a, q, i) => a + q * ITEMS[i].cost, 0);
+    const ev = (day, sev, type, text) => events.push({ day, sev, type, text });
+
+    function snapshot(t, x) {
+      const wip = new Array(nS).fill(0); let awaitM = 0, bookProdM = 0;
+      for (const o of orders) {
+        if (o.ship !== null) continue;
+        if (o.stage === -1) awaitM += o.qty; else { wip[o.stage] += o.rem; bookProdM += o.qty; }
+      }
+      return Object.assign({
+        t, onHand: onHand.slice(), onOrder: onOrder.slice(), invValue: invValue(), wip, awaitM, bookProdM,
+        cum: Object.assign({}, cum),
+        proc: new Array(nS).fill(0), avail: new Array(nS).fill(0), lost: new Array(nS).fill(0),
+        down: new Array(nS).fill(0), starve: new Array(nS).fill(0), short: new Array(nI).fill(0),
+        used: new Array(nI).fill(0), arrCnt: 0, arrM: 0, shipCnt: 0, shipM: 0, sunday: t > 0 && isSunday(t)
+      }, x || {});
+    }
+    days.push(snapshot(0));
+
+    function pick(cands, rule, last, t) {
+      const byDue = (a, b) => a.due - b.due || a.n - b.n;
+      if (rule === 'fifo') return cands.slice().sort((a, b) => a.arrival - b.arrival || a.n - b.n)[0];
+      const sorted = cands.slice().sort(byDue);
+      if (rule === 'campaign' && last !== null) {
+        const urgent = sorted.filter(o => o.due - t <= 2);
+        if (urgent.length) return urgent[0];
+        const same = sorted.filter(o => o.product === last);
+        if (same.length) return same[0];
+      }
+      return sorted[0];
+    }
+
+    for (let t = 1; t <= H; t++) {
+      const sunday = isSunday(t);
+      const short = new Array(nI).fill(0), used = new Array(nI).fill(0);
+      const proc = new Array(nS).fill(0), avail = new Array(nS).fill(0), lost = new Array(nS).fill(0);
+      const down = new Array(nS).fill(0), starve = new Array(nS).fill(0);
+      let arrCnt = 0, arrM = 0, shipCnt = 0, shipM = 0;
+
+      // 1. deliveries
+      for (const po of pos) {
+        if (!po.received && po.arrive === t) {
+          po.received = true; onHand[po.item] += po.qty; onOrder[po.item] -= po.qty;
+          if (po.arrive > po.eta) ev(t, 'warn', 'delay', `${ITEMS[po.item].name} delivery ${po.arrive - po.eta} day${po.arrive - po.eta > 1 ? 's' : ''} late (${po.id}, ${po.supplier})`);
+        }
+      }
+
+      // 2. new orders
+      if (!sunday) {
+        const n = poisson(PARAMS.lambda * cfg.demand, R(seed, 11, t, 0));
+        for (let k = 0; k < n; k++) {
+          let u = R(seed, 12, t, k), acc = 0, p = PRODUCTS[PRODUCTS.length - 1];
+          for (const pr of PRODUCTS) { acc += pr.share; if (u <= acc) { p = pr; break; } }
+          const qty = Math.round((p.size[0] + R(seed, 13, t, k) * (p.size[1] - p.size[0])) / 100) * 100;
+          const cust = CUSTOMERS[Math.floor(R(seed, 14, t, k) * CUSTOMERS.length)];
+          const due = t + p.lead + Math.floor(R(seed, 15, t, k) * 7) - 2;
+          const o = {
+            n: ++soSeq, id: 'SO-' + soSeq, customer: cust, product: p.id, qty, arrival: t, due,
+            release: null, start: [null, null, null, null], done: [null, null, null, null], ship: null,
+            stage: -1, rem: 0, ready: 0, rawCost: 0, value: qty * p.price, blocked: 0
+          };
+          orders.push(o); arrCnt++; arrM += qty;
+        }
+      }
+
+      // 3. release orders when every raw material is available
+      const waiting = orders.filter(o => o.stage === -1).sort((a, b) => a.due - b.due || a.n - b.n);
+      const blockedCount = new Array(nI).fill(0);
+      for (const o of waiting) {
+        const p = PRODUCTS.find(x => x.id === o.product);
+        const need = {}; let ok = true;
+        for (const id in p.bom) {
+          need[id] = p.bom[id] * o.qty / 100;
+          if (onHand[IDX[id]] + 1e-9 < need[id]) { ok = false; blockedCount[IDX[id]]++; short[IDX[id]] = 1; }
+        }
+        if (ok) {
+          for (const id in need) { onHand[IDX[id]] -= need[id]; used[IDX[id]] += need[id]; o.rawCost += need[id] * ITEMS[IDX[id]].cost; }
+          o.release = t; o.stage = 0; o.rem = o.qty; o.ready = t;
+        } else o.blocked++;
+      }
+      for (let i = 0; i < nI; i++) {
+        if (short[i] && !prevShort[i] && blockedCount[i] > 0) ev(t, 'crit', 'stockout', `${ITEMS[i].name} short: ${blockedCount[i]} order${blockedCount[i] > 1 ? 's' : ''} on hold for material`);
+      }
+
+      // 4. production, stage by stage
+      for (let s = 0; s < nS; s++) {
+        const S = STAGES[s], st = stg[s];
+        let cap = 0;
+        if (!sunday) {
+          let isDown = false;
+          if (st.down > 0) { st.down--; isDown = true; }
+          else if (R(seed, 21, s, t) < cfg.breakdown) {
+            st.down = Math.floor(R(seed, 22, s, t) * 3); isDown = true;
+            ev(t, 'warn', 'breakdown', `${S.name} line breakdown, about ${st.down + 1} day${st.down ? 's' : ''} at reduced output`);
+          }
+          const eff = clamp(0.945 + 0.03 * normal(seed, 23, s, t), 0.85, 1);
+          cap = S.cap * cfg.cap[S.id] * eff * (isDown ? 0.4 : 1);
+          down[s] = isDown ? 1 : 0; avail[s] = cap;
+        }
+        const cons = ITEMS.filter(it => it.kind === 'cons' && it.stage === s);
+        while (cap > 1) {
+          const cands = orders.filter(o => o.stage === s && o.ready <= t && o.rem > 0.5);
+          if (!cands.length) break;
+          const o = pick(cands, cfg.rule, st.last, t);
+          if (st.last !== null && o.product !== st.last) {
+            const l = Math.min(S.changeover, cap); cap -= l; lost[s] += l; st.last = o.product;
+            if (cap <= 1) break;
+          } else if (st.last === null) st.last = o.product;
+          let amt = Math.min(o.rem, cap), lim = Infinity, limItem = -1;
+          for (const c of cons) { const mx = onHand[c.idx] / (c.rate / 100); if (mx < lim) { lim = mx; limItem = c.idx; } }
+          if (lim < amt) { amt = lim; starve[s] = 1; short[limItem] = 1; }
+          if (amt < 1) { starve[s] = 1; if (limItem >= 0) short[limItem] = 1; break; }
+          for (const c of cons) { const q = amt * c.rate / 100; onHand[c.idx] -= q; used[c.idx] += q; cum.cons += q * c.cost; }
+          cap -= amt; proc[s] += amt; o.rem -= amt;
+          if (o.start[s] === null) o.start[s] = t;
+          if (o.rem <= 0.5) {
+            o.done[s] = t;
+            if (s < nS - 1) { o.stage = s + 1; o.rem = o.qty; o.ready = t + 1; }
+            else {
+              o.stage = nS; o.rem = 0; o.ship = t; shipCnt++; shipM += o.qty;
+              const conv = STAGES.reduce((a, x) => a + x.conv, 0) * o.qty;
+              cum.rev += o.value; cum.cogs += o.rawCost + conv; cum.mat += o.rawCost; cum.conv += conv;
+              if (t > o.due) {
+                const pen = Math.min(PARAMS.latePenaltyCap, PARAMS.latePenaltyPerDay * (t - o.due)) * o.value; cum.pen += pen;
+                ev(t, 'warn', 'late', `${o.id} (${o.customer}) shipped ${t - o.due} day${t - o.due > 1 ? 's' : ''} late`);
+              }
+            }
+          }
+        }
+      }
+      for (let s = 0; s < nS; s++) {
+        if (starve[s]) {
+          const it = ITEMS.find(x => x.kind === 'cons' && x.stage === s && short[x.idx]);
+          if (it && !prevShort[it.idx]) ev(t, 'crit', 'starve', `${STAGES[s].name} slowed: ${it.name} ran out`);
+        }
+      }
+
+      // 5. costs and replenishment
+      cum.hold += invValue() * PARAMS.holdRate / 365;
+      for (let i = 0; i < nI; i++) {
+        const it = ITEMS[i], p = plan[i];
+        if (onHand[i] + onOrder[i] <= p.rop) {
+          const qty = Math.max(1, Math.ceil((p.S - onHand[i] - onOrder[i]) / it.lot)) * it.lot;
+          const lt = Math.max(1, Math.round(it.lt[0] * cfg.supplierLT + it.lt[1] * normal(seed, 31, i, t)));
+          const late = R(seed, 32, i, t) < cfg.lateProb ? 2 + Math.floor(R(seed, 33, i, t) * 5) : 0;
+          let arrive = t + lt + late, eta = t + Math.round(it.lt[0]);
+          if (isSunday(arrive)) arrive++;
+          if (isSunday(eta)) eta++;
+          const po = { id: 'PO-' + (++poSeq), item: i, supplier: it.supplier, qty, placed: t, eta, arrive, received: false, value: qty * it.cost };
+          pos.push(po); onOrder[i] += qty; cum.ord += PARAMS.poFee;
+          ev(t, 'info', 'po', `Raised ${po.id}: ${Math.round(qty).toLocaleString('en-IN')} ${it.unit} ${it.name}`);
+        }
+      }
+      prevShort = short.slice();
+      days.push(snapshot(t, { proc, avail, lost, down, starve, short, used, arrCnt, arrM, shipCnt, shipM }));
+    }
+
+    const sim = { cfg, plan, days, orders, pos, events, H, items: ITEMS, stages: STAGES, products: PRODUCTS, params: Object.assign({}, PARAMS) };
+    return sim;
+  }
+
+  /* ---------- Metrics ---------- */
+  function kpiAt(sim, d) {
+    let recvN = 0, recvM = 0, shipN = 0, shipM = 0, awaitM = 0, prodM = 0, openN = 0, lateOpen = 0, elig = 0, ontime = 0, leadSum = 0, lateShip = 0, awaitN = 0;
+    for (const o of sim.orders) {
+      if (o.arrival <= d) {
+        recvN++; recvM += o.qty;
+        if (o.ship !== null && o.ship <= d) { shipN++; shipM += o.qty; leadSum += o.ship - o.arrival; if (o.ship > o.due) lateShip++; }
+        else {
+          openN++;
+          if (o.release !== null && o.release <= d) prodM += o.qty; else { awaitM += o.qty; awaitN++; }
+          if (o.due < d) lateOpen++;
+        }
+        if (o.due <= d) { elig++; if (o.ship !== null && o.ship <= o.due) ontime++; }
+      }
+    }
+    const s = sim.days[d];
+    let inv = 0, stockout = 0, usedVal = 0;
+    for (let i = 1; i <= d; i++) {
+      inv += sim.days[i].invValue; for (const f of sim.days[i].short) stockout += f;
+      sim.days[i].used.forEach((q, j) => { usedVal += q * sim.items[j].cost; });
+    }
+    const util = sim.stages.map((st, si) => {
+      let p = 0, work = 0;
+      for (let i = 1; i <= d; i++) if (!sim.days[i].sunday) { p += sim.days[i].proc[si]; work++; }
+      return work ? p / (st.cap * sim.cfg.cap[st.id] * work) : 0;
+    });
+    const utilAvail = sim.stages.map((st, si) => {
+      let p = 0, a = 0;
+      for (let i = 1; i <= d; i++) { p += sim.days[i].proc[si]; a += sim.days[i].avail[si]; }
+      return a ? p / a : 0;
+    });
+    let bottleneck = -1, bu = 0; util.forEach((u, i) => { if (u > bu) { bu = u; bottleneck = i; } });
+    const c = s.cum, avgInv = d ? inv / d : s.invValue;
+    return {
+      day: d, recvN, recvM, shipN, shipM, openN, awaitM, awaitN, prodM, lateOpen, lateShip,
+      otif: elig ? ontime / elig * 100 : null, elig,
+      lead: shipN ? leadSum / shipN : null,
+      invValue: s.invValue, avgInv, stockoutDays: stockout,
+      turns: d && avgInv > 0 ? usedVal / d * 365 / avgInv : null,
+      throughput: d ? shipM / d : 0, utilAvail, bottleneck,
+      costs: { materials: c.mat, conversion: c.conv, consumables: c.cons, holding: c.hold, ordering: c.ord, penalties: c.pen },
+      revenue: c.rev, contribution: c.rev - c.cogs - c.cons - c.hold - c.ord - c.pen,
+      penalties: c.pen, holding: c.hold, ordering: c.ord, util
+    };
+  }
+
+  function buildSeries(sim) {
+    const H = sim.H, out = { awaitM: [], prodM: [], otifRoll: [], recvCum: [], shipCum: [], util: [[], [], [], []], wip: [[], [], [], []], inv: [], invRaw: [], invCons: [] };
+    let rc = 0, sc = 0;
+    for (let d = 0; d <= H; d++) {
+      const s = sim.days[d];
+      out.awaitM.push(s.awaitM); out.prodM.push(s.bookProdM);
+      rc += s.arrM; sc += s.shipM; out.recvCum.push(rc); out.shipCum.push(sc);
+      let n = 0, ok = 0;
+      for (const o of sim.orders) if (o.due <= d && o.due > d - 14 && o.arrival <= d) { n++; if (o.ship !== null && o.ship <= o.due) ok++; }
+      out.otifRoll.push(n >= 3 ? ok / n * 100 : null);
+      sim.stages.forEach((st, si) => {
+        out.util[si].push(d === 0 || s.sunday ? null : s.proc[si] / (st.cap * sim.cfg.cap[st.id]) * 100);
+        out.wip[si].push(s.wip[si]);
+      });
+      let raw = 0, cons = 0;
+      s.onHand.forEach((q, i) => { if (ITEMS[i].kind === 'raw') raw += q * ITEMS[i].cost; else cons += q * ITEMS[i].cost; });
+      out.invRaw.push(raw); out.invCons.push(cons); out.inv.push(raw + cons);
+    }
+    return out;
+  }
+
+  function summarize(sim) {
+    const k = kpiAt(sim, sim.H);
+    return k;
+  }
+
+  function quantile(sorted, q) {
+    if (!sorted.length) return null;
+    const pos = (sorted.length - 1) * q, lo = Math.floor(pos), hi = Math.ceil(pos);
+    return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
+  }
+  const mean = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
+  const sd = a => { if (a.length < 2) return 0; const m = mean(a); return Math.sqrt(a.reduce((x, y) => x + (y - m) * (y - m), 0) / (a.length - 1)); };
+
+  // Runs n replications (seed, seed+1, ...) and returns means plus spread for the headline measures.
+  function runMany(cfg, n) {
+    n = Math.max(1, Math.round(n));
+    const col = { otif: [], lead: [], contribution: [], avgInv: [], stockoutDays: [], openM: [], lateOpen: [], revenue: [], utilDye: [], turns: [] };
+    for (let i = 0; i < n; i++) {
+      const sim = simulate(Object.assign({}, cfg, { seed: (cfg.seed | 0) + i }));
+      const k = kpiAt(sim, sim.H);
+      if (k.otif !== null) col.otif.push(k.otif);
+      if (k.lead !== null) col.lead.push(k.lead);
+      if (k.turns !== null) col.turns.push(k.turns);
+      col.contribution.push(k.contribution); col.avgInv.push(k.avgInv); col.stockoutDays.push(k.stockoutDays);
+      col.openM.push(k.awaitM + k.prodM); col.lateOpen.push(k.lateOpen); col.revenue.push(k.revenue); col.utilDye.push(k.util[1]);
+    }
+    const out = { n };
+    for (const key in col) out[key] = mean(col[key]);
+    for (const key of ['otif', 'contribution', 'lead', 'avgInv']) {
+      const sorted = col[key].slice().sort((x, y) => x - y);
+      out[key + 'Sd'] = sd(col[key]); out[key + 'P10'] = quantile(sorted, 0.1); out[key + 'P90'] = quantile(sorted, 0.9);
+    }
+    return out;
+  }
+
+  function presetCfg(id, base) {
+    const p = PRESETS.find(x => x.id === id);
+    const c = Object.assign({}, base || {}, p.cfg);
+    c.cap = Object.assign({}, (base && base.cap) || {}, p.cfg.cap || {});
+    return c;
+  }
+
+  /* ---------- Master data editing ---------- */
+  const SNAPSHOT = JSON.stringify({ stages: STAGES, products: PRODUCTS, items: ITEMS.map(i => { const c = Object.assign({}, i); delete c.idx; return c; }), customers: CUSTOMERS, params: PARAMS });
+  let dataVersion = 0, customData = false;
+  const num = (v, lo, hi, what) => {
+    if (typeof v !== 'number' || !isFinite(v)) throw new Error(what + ' must be a number');
+    if (v < lo || v > hi) throw new Error(what + ' must be between ' + lo + ' and ' + hi);
+    return v;
+  };
+  // Returns a plain-object copy of everything a client can change.
+  function getData() {
+    return JSON.parse(JSON.stringify({ stages: STAGES, products: PRODUCTS, items: ITEMS.map(i => { const c = Object.assign({}, i); delete c.idx; return c; }), customers: CUSTOMERS, params: PARAMS }));
+  }
+  // Validates and applies edited master data in place. Structure (which stages, which item ids) is fixed;
+  // numbers, names, BOM quantities, customers and global parameters can change. Throws before touching anything if invalid.
+  function setData(d) {
+    if (!d || typeof d !== 'object') throw new Error('Data must be an object');
+    const base = JSON.parse(SNAPSHOT);
+    const stages = (d.stages || base.stages).map((st, i) => {
+      const b = base.stages[i]; if (!b) throw new Error('Unknown stage #' + (i + 1));
+      return { id: b.id, name: String(st.name || b.name), cap: num(+st.cap, 100, 1e7, b.name + ' capacity'), changeover: num(+st.changeover, 0, 5000000, b.name + ' changeover'), conv: num(+st.conv, 0, 1e4, b.name + ' conversion cost') };
+    });
+    if (stages.length !== base.stages.length) throw new Error('All ' + base.stages.length + ' stages are required');
+    const itemIds = base.items.map(i => i.id);
+    const products = (d.products || base.products).map((p, i) => {
+      const b = base.products[i]; if (!b) throw new Error('Unknown product #' + (i + 1));
+      const bom = {};
+      for (const id in p.bom || {}) {
+        if (!itemIds.includes(id) || base.items.find(x => x.id === id).kind !== 'raw') throw new Error(b.name + ': BOM item ' + id + ' is not a raw material');
+        const q = num(+p.bom[id], 0, 1e4, b.name + ' BOM ' + id); if (q > 0) bom[id] = q;
+      }
+      if (!Object.keys(bom).length) throw new Error(b.name + ' needs at least one material in its BOM');
+      const size = [num(+p.size[0], 100, 1e6, b.name + ' min order'), num(+p.size[1], 100, 1e6, b.name + ' max order')];
+      if (size[1] < size[0]) throw new Error(b.name + ': max order size is below min');
+      return { id: b.id, name: String(p.name || b.name), short: String(p.short || b.short), price: num(+p.price, 1, 1e6, b.name + ' price'), share: num(+p.share, 0, 1, b.name + ' share'), size, lead: num(+p.lead, 1, 120, b.name + ' lead time'), bom };
+    });
+    if (products.length !== base.products.length) throw new Error('All ' + base.products.length + ' products are required');
+    const shareSum = products.reduce((a, p) => a + p.share, 0);
+    if (Math.abs(shareSum - 1) > 0.011) throw new Error('Product shares must add up to 100% (currently ' + Math.round(shareSum * 100) + '%)');
+    const items = (d.items || base.items).map((it, i) => {
+      const b = base.items[i]; if (!b) throw new Error('Unknown item #' + (i + 1));
+      const lt = [num(+it.lt[0], 1, 120, b.name + ' lead time'), num(+it.lt[1], 0, 60, b.name + ' lead time spread')];
+      const o = Object.assign({}, b, { name: String(it.name || b.name), unit: String(it.unit || b.unit), supplier: String(it.supplier || b.supplier),
+        cost: num(+it.cost, 0.01, 1e7, b.name + ' cost'), lot: num(+it.lot, 1, 1e8, b.name + ' lot size'), lt, cover: num(+it.cover, 0, 365, b.name + ' cover days') });
+      if (b.kind === 'cons') o.rate = num(+it.rate, 0, 1e4, b.name + ' usage rate');
+      return o;
+    });
+    if (items.length !== base.items.length) throw new Error('All ' + base.items.length + ' items are required');
+    const pr = d.params || base.params;
+    const params = {
+      lambda: num(+pr.lambda, 0.1, 100, 'Orders per day'), holdRate: num(+pr.holdRate, 0, 2, 'Holding rate'), poFee: num(+pr.poFee, 0, 1e7, 'Purchase order fee'),
+      latePenaltyPerDay: num(+pr.latePenaltyPerDay, 0, 1, 'Late penalty per day'), latePenaltyCap: num(+pr.latePenaltyCap, 0, 1, 'Late penalty cap')
+    };
+    const customers = (d.customers || base.customers).map(String).filter(Boolean);
+    if (!customers.length) throw new Error('At least one customer is required');
+    // all checks passed: apply
+    stages.forEach((st, i) => Object.assign(STAGES[i], st));
+    products.forEach((p, i) => { PRODUCTS[i] = p; });
+    items.forEach((it, i) => { it.idx = i; Object.assign(ITEMS[i], it); });
+    CUSTOMERS.length = 0; customers.forEach(c => CUSTOMERS.push(c));
+    Object.assign(PARAMS, params);
+    dataVersion++; customData = JSON.stringify(getData()) !== SNAPSHOT;
+  }
+  function resetData() { setData(JSON.parse(SNAPSHOT)); customData = false; }
+  const dataInfo = () => ({ version: dataVersion, custom: customData });
+
+  const api = { STAGES, PRODUCTS, ITEMS, IDX, CUSTOMERS, PARAMS, DEFAULTS, PRESETS, getData, setData, resetData, dataInfo, simulate, kpiAt, buildSeries, summarize, runMany, presetCfg, dateOf, isSunday, makePlan, mergeCfg };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.LoomEngine = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+(function () {
+  'use strict';
+  const E = window.LoomEngine;
+  const $ = (s, r) => (r || document).querySelector(s);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const nf = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 });
+  const n0 = v => nf.format(Math.round(v));
+  const n1 = v => (Math.round(v * 10) / 10).toLocaleString('en-IN', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+  function inr(v) {
+    const a = Math.abs(v), sg = v < 0 ? '-' : '';
+    if (a >= 1e7) return sg + '₹' + (a / 1e7).toFixed(2) + ' Cr';
+    if (a >= 1e5) return sg + '₹' + (a / 1e5).toFixed(1) + ' L';
+    return sg + '₹' + nf.format(a);
+  }
+  const dFmt = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const dShort = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const dateStr = d => d < 1 ? 'Start of run' : dFmt.format(E.dateOf(d));
+  const dateShort = d => d < 1 ? 'Start' : dShort.format(E.dateOf(d));
+  const SC = ['var(--c1)', 'var(--c2)', 'var(--c3)', 'var(--c4)'];   // stage colours
+  const STAGE_NAMES = E.STAGES.map(s => s.name);
+  const prodOf = id => E.PRODUCTS.find(p => p.id === id);
+
+  /* ---------------- state ---------------- */
+  const UI = { tab: 'overview', day: 90, playing: false, timer: null, cfg: null, sim: null, base: null, ser: null, isBase: true,
+    oFilter: 'all', oProd: 'all', poFilter: 'all', cmp: { key: '', data: null, busy: false }, lev: { key: '', data: null, busy: false },
+    draft: null, dataError: '' };
+  UI.cfg = Object.assign({}, E.DEFAULTS);
+  UI.cfg.cap = Object.assign({}, E.DEFAULTS.cap);
+
+  /* ---------------- persistence, files, notices ---------------- */
+  const STORE = 'loomline.v1';
+  function persist() {
+    try { localStorage.setItem(STORE, JSON.stringify({ cfg: UI.cfg, data: E.dataInfo().custom ? E.getData() : null })); } catch (e) { /* storage unavailable */ }
+  }
+  function restore() {
+    try {
+      const o = JSON.parse(localStorage.getItem(STORE) || 'null'); if (!o) return;
+      if (o.data) E.setData(o.data);
+      if (o.cfg) UI.cfg = sanitizeCfg(o.cfg);
+    } catch (e) { try { localStorage.removeItem(STORE); } catch (e2) { /* ignore */ } E.resetData(); }
+  }
+  function sanitizeCfg(c) {
+    const out = Object.assign({}, E.DEFAULTS, c || {});
+    out.cap = Object.assign({}, E.DEFAULTS.cap, (c && c.cap) || {});
+    SL.forEach(s => { let v = s.get(out); if (!isFinite(v)) v = s.get(E.DEFAULTS); s.set(out, clamp(v, s.min, s.max)); });
+    if (!['edd', 'fifo', 'campaign'].includes(out.rule)) out.rule = 'edd';
+    out.seed = clamp(parseInt(out.seed, 10) || 7, 1, 9999);
+    return out;
+  }
+  function download(name, text, type) {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: type || 'text/plain' })); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  const csv = rows => '\ufeff' + rows.map(r => r.map(v => { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(',')).join('\r\n');
+  const iso = d => d < 1 ? '' : E.dateOf(d).toISOString().slice(0, 10);
+  let toastT;
+  function toast(msg, bad) {
+    const t = $('#toast'); t.textContent = msg; t.className = 'toast' + (bad ? ' bad' : ''); t.hidden = false;
+    clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, bad ? 6000 : 2800);
+  }
+  function renderChip() {
+    const c = $('#dataChip'), custom = E.dataInfo().custom;
+    c.textContent = custom ? 'Custom data' : 'Demo data'; c.className = 'demo-chip' + (custom ? ' custom' : '');
+  }
+  const cmpKey = () => JSON.stringify(UI.cfg) + '|' + E.dataInfo().version;
+
+  function sameSettings(a, b) {
+    return ['demand', 'supplierLT', 'lateProb', 'safetyDays', 'breakdown', 'rule'].every(k => a[k] === b[k]) &&
+      Object.keys(E.DEFAULTS.cap).every(k => a.cap[k] === b.cap[k]);
+  }
+  function recompute() {
+    const atEnd = !UI.sim || UI.day >= UI.sim.H;
+    UI.sim = E.simulate(UI.cfg);
+    const bc = Object.assign({}, E.DEFAULTS, { horizon: UI.cfg.horizon, seed: UI.cfg.seed });
+    bc.cap = Object.assign({}, E.DEFAULTS.cap);
+    UI.isBase = sameSettings(UI.cfg, bc);
+    UI.base = UI.isBase ? UI.sim : E.simulate(bc);
+    UI.ser = E.buildSeries(UI.sim);
+    UI.day = atEnd ? UI.sim.H : Math.min(UI.day, UI.sim.H);
+  }
+
+  /* ---------------- charts ---------------- */
+  function niceMax(v) {
+    if (v <= 0) return 1;
+    const p = Math.pow(10, Math.floor(Math.log10(v)));
+    for (const m of [1, 1.2, 1.6, 2, 2.4, 2.8, 3.2, 4, 4.8, 6, 8, 10]) if (m * p >= v * 1.02) return m * p;
+    return 10 * p;
+  }
+  function lineChart(host, o) {
+    const W = Math.max(260, Math.floor(host.clientWidth || 640)), Hh = o.h || 200;
+    const m = { l: o.ml || 46, r: 14, t: 10, b: 24 };
+    const iw = W - m.l - m.r, ih = Hh - m.t - m.b, n = o.n, S = o.series;
+    let ymax = o.ymax;
+    if (ymax == null) {
+      ymax = 0;
+      if (o.stack) { for (let i = 0; i < n; i++) { let t = 0; for (const s of S) t += s.data[i] || 0; ymax = Math.max(ymax, t); } }
+      else for (const s of S) for (const v of s.data) if (v != null) ymax = Math.max(ymax, v);
+      for (const r of (o.ref || [])) ymax = Math.max(ymax, r.y);
+      ymax = niceMax(ymax || 1);
+    }
+    const X = i => m.l + (n > 1 ? i / (n - 1) * iw : 0), Y = v => m.t + ih - clamp(v / ymax, 0, 1) * ih;
+    const yf = o.yfmt || n0;
+    let g = '';
+    for (let k = 0; k <= 4; k++) {
+      const y = Y(ymax * k / 4);
+      g += `<line class="${k ? 'gl' : 'base'}" x1="${m.l}" x2="${W - m.r}" y1="${y}" y2="${y}"/><text class="ax" x="${m.l - 7}" y="${y + 4}" text-anchor="end">${yf(ymax * k / 4)}</text>`;
+    }
+    const step = Math.max(1, Math.ceil((n - 1) / (W < 460 ? 4 : 6)));
+    for (let i = 0; i < n; i += step) g += `<text class="ax" x="${X(i)}" y="${Hh - 6}" text-anchor="${i === 0 ? 'start' : 'middle'}">${o.xlab(i)}</text>`;
+    for (const r of (o.ref || [])) g += `<line class="rf" x1="${m.l}" x2="${W - m.r}" y1="${Y(r.y)}" y2="${Y(r.y)}"/>` + (r.label ? `<text class="ax" x="${W - m.r}" y="${Y(r.y) - 4}" text-anchor="end">${esc(r.label)}</text>` : '');
+    if (o.stack) {
+      const base = new Array(n).fill(0);
+      for (const s of S) {
+        const top = base.map((b, i) => b + (s.data[i] || 0));
+        let d = 'M' + X(0) + ' ' + Y(base[0]);
+        for (let i = 0; i < n; i++) d += ' L' + X(i).toFixed(1) + ' ' + Y(top[i]).toFixed(1);
+        for (let i = n - 1; i >= 0; i--) d += ' L' + X(i).toFixed(1) + ' ' + Y(base[i]).toFixed(1);
+        g += `<path d="${d}Z" style="fill:${s.color};fill-opacity:.92;stroke:var(--surface);stroke-width:1.5"/>`;
+        for (let i = 0; i < n; i++) base[i] = top[i];
+      }
+    } else {
+      for (const s of S) {
+        let d = '', first = true, lastX = 0, firstX = 0;
+        for (let i = 0; i < n; i++) { const v = s.data[i]; if (v == null) continue; d += (first ? 'M' : ' L') + X(i).toFixed(1) + ' ' + Y(v).toFixed(1); if (first) firstX = X(i); lastX = X(i); first = false; }
+        if (!d) continue;
+        if (s.area) g += `<path d="${d} L${lastX.toFixed(1)} ${Y(0)} L${firstX.toFixed(1)} ${Y(0)}Z" style="fill:${s.color};fill-opacity:.13"/>`;
+        g += `<path d="${d}" style="fill:none;stroke:${s.color};stroke-width:2;stroke-linejoin:round;stroke-linecap:round"/>`;
+      }
+    }
+    if (o.mark != null && o.mark >= 0 && o.mark < n) {
+      g += `<line class="mk" x1="${X(o.mark)}" x2="${X(o.mark)}" y1="${m.t}" y2="${m.t + ih}"/>`;
+      if (!o.stack) for (const s of S) { const v = s.data[o.mark]; if (v != null) g += `<circle cx="${X(o.mark)}" cy="${Y(v)}" r="4" style="fill:${s.color};stroke:var(--surface);stroke-width:2"/>`; }
+    }
+    g += `<line class="hv" x1="0" x2="0" y1="${m.t}" y2="${m.t + ih}" visibility="hidden"/><rect class="hit" x="${m.l}" y="${m.t}" width="${iw}" height="${ih}" fill="transparent"/>`;
+    host.innerHTML = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="${esc(o.aria || 'Chart')}">${g}</svg>`;
+    const svg = host.firstChild, hit = $('.hit', svg), hv = $('.hv', svg);
+    const tip = document.createElement('div'); tip.className = 'tip'; tip.hidden = true; host.appendChild(tip);
+    const idxAt = e => { const r = hit.getBoundingClientRect(); return clamp(Math.round((e.clientX - r.left) / r.width * (n - 1)), 0, n - 1); };
+    hit.addEventListener('pointermove', e => {
+      const i = idxAt(e); hv.setAttribute('x1', X(i)); hv.setAttribute('x2', X(i)); hv.setAttribute('visibility', 'visible');
+      let h = `<b>${esc(o.xtip ? o.xtip(i) : o.xlab(i))}</b>`;
+      for (const s of S) { const v = s.data[i]; h += `<div><em style="font-style:normal"><i style="background:${s.color}"></i>${esc(s.name)}</em><span>${v == null ? 'n/a' : (o.vfmt || yf)(v)}</span></div>`; }
+      if (o.stack) h += `<div><em style="font-style:normal">Total</em><span>${(o.vfmt || yf)(S.reduce((a, s) => a + (s.data[i] || 0), 0))}</span></div>`;
+      tip.innerHTML = h; tip.hidden = false;
+      const hr = host.getBoundingClientRect(), px = e.clientX - hr.left;
+      tip.style.left = clamp(px + 14, 0, Math.max(0, hr.width - tip.offsetWidth)) + 'px';
+      tip.style.top = '4px';
+    });
+    hit.addEventListener('pointerleave', () => { tip.hidden = true; hv.setAttribute('visibility', 'hidden'); });
+    if (o.onPick) hit.addEventListener('click', e => o.onPick(idxAt(e)));
+    hit.style.cursor = o.onPick ? 'pointer' : 'default';
+  }
+
+  function barChart(host, o) {
+    const W = Math.max(260, Math.floor(host.clientWidth || 640)), Hh = o.h || 200, m = { l: 40, r: 10, t: 10, b: 30 };
+    const iw = W - m.l - m.r, ih = Hh - m.t - m.b, n = o.values.length;
+    const ymax = niceMax(Math.max(1, ...o.values)), bw = iw / n;
+    let g = '';
+    for (let k = 0; k <= 4; k++) { const y = m.t + ih - ih * k / 4; g += `<line class="${k ? 'gl' : 'base'}" x1="${m.l}" x2="${W - m.r}" y1="${y}" y2="${y}"/><text class="ax" x="${m.l - 7}" y="${y + 4}" text-anchor="end">${n0(ymax * k / 4)}</text>`; }
+    o.values.forEach((v, i) => {
+      const h = v / ymax * ih, x = m.l + i * bw + 2, w = Math.max(2, bw - 4);
+      g += `<path d="M${x} ${m.t + ih} V${m.t + ih - h + 3} Q${x} ${m.t + ih - h} ${x + 3} ${m.t + ih - h} H${x + w - 3} Q${x + w} ${m.t + ih - h} ${x + w} ${m.t + ih - h + 3} V${m.t + ih}Z" style="fill:${o.color(i)};fill-opacity:.95"><title>${esc(o.labels[i])}: ${n0(v)} orders</title></path>`;
+      if (i % o.every === 0) g += `<text class="ax" x="${x + w / 2}" y="${Hh - 10}" text-anchor="middle">${esc(o.labels[i])}</text>`;
+    });
+    if (o.axis) g += `<text class="axb" x="${m.l + iw / 2}" y="${Hh}" text-anchor="middle" visibility="hidden">${esc(o.axis)}</text>`;
+    host.innerHTML = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="${esc(o.aria || 'Bar chart')}">${g}</svg>`;
+  }
+
+  function spark(vals, rop, color) {
+    const W = 120, H = 28, n = vals.length, mx = Math.max(rop * 1.05, ...vals, 1);
+    const X = i => 2 + (n > 1 ? i / (n - 1) * (W - 4) : 0), Y = v => H - 3 - v / mx * (H - 6);
+    let d = ''; vals.forEach((v, i) => { d += (i ? ' L' : 'M') + X(i).toFixed(1) + ' ' + Y(v).toFixed(1); });
+    return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><line class="rf" x1="2" x2="${W - 2}" y1="${Y(rop)}" y2="${Y(rop)}"/><path d="${d}" style="fill:none;stroke:${color};stroke-width:1.6;stroke-linejoin:round"/><circle cx="${X(n - 1)}" cy="${Y(vals[n - 1])}" r="2.6" style="fill:${color}"/></svg>`;
+  }
+
+  function gantt(host, rows, d) {
+    const W = Math.max(300, Math.floor(host.clientWidth || 700)), LW = W < 520 ? 84 : 148, rh = 24, top = 22;
+    const d0 = d - 24, d1 = d + 12, iw = W - LW - 10, Hh = top + rows.length * rh + 8;
+    const X = t => LW + clamp((t - d0) / (d1 - d0), 0, 1) * iw;
+    let g = '';
+    for (let t = Math.ceil(d0); t <= d1; t++) if (t >= 1 && ((t - 1) % 4 === 0)) g += `<line class="gl" x1="${X(t)}" x2="${X(t)}" y1="${top - 4}" y2="${Hh - 6}"/><text class="ax" x="${X(t)}" y="12" text-anchor="middle">${dateShort(t)}</text>`;
+    g += `<line class="mk" x1="${X(d + 1)}" x2="${X(d + 1)}" y1="${top - 4}" y2="${Hh - 6}"/>`;
+    rows.forEach((o, r) => {
+      const y = top + r * rh, cy = y + rh / 2;
+      g += `<text class="ax" x="4" y="${cy + 4}" style="fill:var(--ink-2);font-family:var(--f-mono)">${W < 520 ? o.id.slice(3) : o.id + ' · ' + esc(prodOf(o.product).short)}</text>`;
+      const relEnd = o.release !== null && o.release <= d ? o.release : d + 1;
+      g += `<rect x="${X(o.arrival)}" y="${cy - 2}" width="${Math.max(1, X(relEnd) - X(o.arrival))}" height="4" rx="2" style="fill:${o.release !== null && o.release <= d ? 'var(--line)' : 'var(--c2)'};fill-opacity:${o.release !== null && o.release <= d ? 1 : .55}"/>`;
+      for (let s = 0; s < 4; s++) {
+        if (o.start[s] === null || o.start[s] > d) continue;
+        const e = o.done[s] !== null && o.done[s] <= d ? o.done[s] + 1 : d + 1;
+        g += `<rect x="${X(o.start[s])}" y="${cy - 7}" width="${Math.max(2, X(e) - X(o.start[s]) - 1)}" height="14" rx="3" style="fill:${SC[s]};fill-opacity:.92"><title>${STAGE_NAMES[s]}</title></rect>`;
+      }
+      if (o.due + 0.5 <= d1 && o.due + 0.5 >= d0) g += `<path d="M${X(o.due + 0.5)} ${y + 1} l4 5 h-8 z" style="fill:var(--ink)"><title>Due ${dateShort(o.due)}</title></path>`;
+    });
+    host.innerHTML = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Order timeline by production stage">${g}</svg>`;
+  }
+
+  function tradeoff(host, pts, cur) {
+    const W = Math.max(260, Math.floor(host.clientWidth || 640)), Hh = 250, m = { l: 48, r: 22, t: 14, b: 38 };
+    const iw = W - m.l - m.r, ih = Hh - m.t - m.b;
+    const xs = pts.map(p => p.avgInv), x0 = Math.min(...xs) * 0.94, x1 = Math.max(...xs) * 1.04;
+    const ys = pts.map(p => p.otif), y0 = Math.max(0, Math.floor((Math.min(...ys) - 4) / 20) * 20), y1 = 100;
+    const X = v => m.l + (v - x0) / (x1 - x0) * iw, Y = v => m.t + ih - (v - y0) / (y1 - y0) * ih;
+    let g = '';
+    for (let k = 0; k <= 4; k++) { const v = y0 + (y1 - y0) * k / 4, y = Y(v); g += `<line class="${k ? 'gl' : 'base'}" x1="${m.l}" x2="${W - m.r}" y1="${y}" y2="${y}"/><text class="ax" x="${m.l - 7}" y="${y + 4}" text-anchor="end">${Math.round(v)}%</text>`; }
+    for (let k = 0; k <= 4; k++) { const v = x0 + (x1 - x0) * k / 4; g += `<text class="ax" x="${X(v)}" y="${Hh - 16}" text-anchor="middle">${inr(v)}</text>`; }
+    g += `<text class="axb" x="${m.l + iw / 2}" y="${Hh - 1}" text-anchor="middle">Average stock held (more safety stock to the right)</text>`;
+    let d = ''; pts.forEach((p, i) => { d += (i ? ' L' : 'M') + X(p.avgInv).toFixed(1) + ' ' + Y(p.otif).toFixed(1); });
+    g += `<path d="${d}" style="fill:none;stroke:var(--c1);stroke-width:2;stroke-linejoin:round"/>`;
+    pts.forEach(p => {
+      const on = p.days === cur;
+      g += `<circle cx="${X(p.avgInv)}" cy="${Y(p.otif)}" r="${on ? 6 : 4.5}" style="fill:${on ? 'var(--accent)' : 'var(--c1)'};stroke:var(--surface);stroke-width:2"><title>${p.days} days safety stock: ${n1(p.otif)}% on time, ${inr(p.avgInv)} average stock</title></circle>`;
+      g += `<text class="ax" x="${X(p.avgInv)}" y="${Y(p.otif) - 10}" text-anchor="middle" style="${on ? 'font-weight:700;fill:var(--ink)' : ''}">${p.days}d</text>`;
+    });
+    host.innerHTML = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="On-time delivery against stock held for different safety stock levels">${g}</svg>`;
+  }
+
+  /* ---------------- helpers for views ---------------- */
+  const pill = (cls, t) => `<span class="pill ${cls}">${esc(t)}</span>`;
+  const legend = arr => `<div class="legend">${arr.map(a => `<span><i style="background:${a[1]}"></i>${esc(a[0])}</span>`).join('')}</div>`;
+  const setDay = d => { UI.day = clamp(Math.round(d), 0, UI.sim.H); renderScrub(); renderView(); };
+  const pickDay = i => { stopPlay(); setDay(i); };
+  const roll = (arr, w) => arr.map((v, i) => { let s = 0, c = 0; for (let j = Math.max(0, i - w + 1); j <= i; j++) if (arr[j] != null) { s += arr[j]; c++; } return v == null && i === 0 ? null : (c ? s / c : null); });
+  function delta(v, b, o) {
+    if (UI.isBase || v == null || b == null) return '';
+    const d = v - b; if (Math.abs(d) < (o.eps || 0.05)) return `<span class="dl neu">= same as baseline</span>`;
+    const good = o.neutral ? null : (o.higherBetter ? d > 0 : d < 0);
+    return `<span class="dl ${good === null ? 'neu' : good ? 'good' : 'bad'}">${d > 0 ? '▲' : '▼'} ${o.fmt(Math.abs(d))} vs baseline</span>`;
+  }
+
+  /* ---------------- views ---------------- */
+  function kpiTiles(kp, kb) {
+    const T = (l, v, s, dl) => `<div class="kpi"><label>${l}</label><div class="v">${v}</div><div class="s">${s}</div>${dl}</div>`;
+    return `<div class="kpis">` +
+      T('On-time delivery', kp.otif == null ? 'n/a' : n1(kp.otif) + '%', kp.elig ? `${n0(kp.elig)} orders fell due` : 'No orders due yet', delta(kp.otif, kb.otif, { higherBetter: true, fmt: v => n1(v) + ' pts' })) +
+      T('Orders shipped', n0(kp.shipN), `of ${n0(kp.recvN)} received, ${n0(kp.openN)} open`, delta(kp.shipN, kb.shipN, { higherBetter: true, eps: 0.5, fmt: v => n0(v) })) +
+      T('Open order book', n0(kp.awaitM + kp.prodM) + ' m', `${n0(kp.awaitM)} m awaiting material`, delta(kp.awaitM + kp.prodM, kb.awaitM + kb.prodM, { eps: 100, fmt: v => n0(v) + ' m' })) +
+      T('Avg lead time', kp.lead == null ? 'n/a' : n1(kp.lead) + ' d', `${n0(kp.lateOpen)} open orders overdue`, delta(kp.lead, kb.lead, { fmt: v => n1(v) + ' d' })) +
+      T('Stock on hand', inr(kp.invValue), `${n0(kp.stockoutDays)} material-short item-days`, delta(kp.invValue, kb.invValue, { neutral: true, eps: 1000, fmt: v => inr(v) })) +
+      T('Contribution', inr(kp.contribution), `on ${inr(kp.revenue)} shipped revenue`, delta(kp.contribution, kb.contribution, { higherBetter: true, eps: 1000, fmt: v => inr(v) })) +
+      T('Throughput', n0(kp.throughput) + ' m/day', 'fabric shipped per calendar day', delta(kp.throughput, kb.throughput, { higherBetter: true, eps: 20, fmt: v => n0(v) + ' m/day' })) +
+      T('Stock turns', kp.turns == null ? 'n/a' : n1(kp.turns) + ' /yr', 'yearly material use over average stock', delta(kp.turns, kb.turns, { higherBetter: true, eps: 0.1, fmt: v => n1(v) })) +
+      `</div>`;
+  }
+
+  function flowHTML(d, kp) {
+    const s = UI.sim.days[d], cfg = UI.sim.cfg;
+    const qd = E.STAGES.map((st, i) => s.wip[i] / (st.cap * cfg.cap[st.id] * 0.93));
+    let hot = -1, hv = 2; qd.forEach((v, i) => { if (v > hv) { hv = v; hot = i; } });
+    let h = `<div class="flow">`;
+    h += `<div class="cell"><div class="nm">Awaiting material</div><div class="big">${n0(s.awaitM)} <small>m</small></div><div class="sm">${n0(kp.awaitN)} orders on hold</div><div class="bar"><i style="width:${clamp(s.awaitM / 40000 * 100, 0, 100)}%;background:var(--c2)"></i></div>${kp.awaitN ? pill(kp.awaitN > 3 ? 'crit' : 'warn', 'On hold') : pill('good', 'Clear')}</div>`;
+    E.STAGES.forEach((st, i) => {
+      const nominal = st.cap * cfg.cap[st.id], util = d ? s.proc[i] / nominal * 100 : 0;
+      let status;
+      if (d === 0) status = pill('neu', 'Not started');
+      else if (s.sunday) status = pill('neu', 'Weekly off');
+      else if (s.down[i]) status = pill('crit', 'Breakdown');
+      else if (s.starve[i]) { const it = E.ITEMS.find(x => x.kind === 'cons' && x.stage === i && s.short[x.idx]); status = pill('crit', 'Short of ' + (it ? it.name.toLowerCase() : 'supplies')); }
+      else if (qd[i] > 3) status = pill('warn', `Queue ${n1(qd[i])} days`); else status = pill('good', 'Running');
+      h += `<div class="cell${hot === i ? ' hot' : ''}"><div class="nm">${st.name}${hot === i ? '<em>Bottleneck</em>' : ''}</div><div class="big">${n0(s.wip[i])} <small>m queued</small></div><div class="sm">${s.sunday ? 'Closed today' : n0(util) + '% of capacity used today'}</div><div class="bar"><i style="width:${clamp(util, 0, 100)}%;background:${SC[i]}"></i></div>${status}</div>`;
+    });
+    h += `<div class="cell"><div class="nm">Shipped today</div><div class="big">${n0(s.shipM)} <small>m</small></div><div class="sm">${n0(s.shipCnt)} order${s.shipCnt === 1 ? '' : 's'} dispatched</div><div class="bar"><i style="width:${clamp(s.shipM / 12000 * 100, 0, 100)}%;background:var(--c3)"></i></div>${pill('info', n0(s.arrCnt) + ' new today')}</div>`;
+    return h + `</div>`;
+  }
+
+  function viewOverview() {
+    const d = UI.day, kp = E.kpiAt(UI.sim, d), kb = E.kpiAt(UI.base, d), ser = UI.ser, n = d + 1;
+    const alerts = UI.sim.events.filter(e => e.day <= d && e.sev !== 'info').slice(-7).reverse();
+    const html = `<div class="stack">
+      ${kpiTiles(kp, kb)}
+      <div class="card"><div class="card-h"><h3>Factory flow</h3><span class="sub">${dateStr(d)}${UI.sim.days[d].sunday ? ' · weekly off' : ''}</span></div>${flowHTML(d, kp)}</div>
+      <div class="grid2">
+        <div class="card"><div class="card-h"><h3>Open order book</h3>${legend([['In production', 'var(--c1)'], ['Awaiting material', 'var(--c2)']])}</div><div class="ch" id="chBook"></div><div class="sub" style="margin-top:6px">Meters of fabric ordered but not yet shipped. Click the chart to jump to a day.</div></div>
+        <div class="card"><div class="card-h"><h3>On-time delivery</h3><span class="sub">orders due in the last 14 days</span></div><div class="ch" id="chOtif"></div></div>
+      </div>
+      <div class="card"><div class="card-h"><h3>Alerts</h3><span class="sub">up to ${dateStr(d)}</span></div>
+        ${alerts.length ? `<ul class="feed">${alerts.map(e => `<li><time>${dateShort(e.day)}</time>${pill(e.sev === 'crit' ? 'crit' : 'warn', e.sev === 'crit' ? 'Critical' : 'Warning')}<span>${esc(e.text)}</span></li>`).join('')}</ul>` : '<div class="empty">Nothing to flag so far. Press play to run the days forward.</div>'}
+      </div></div>`;
+    return { html, after() {
+      const x = { n, mark: d, xlab: dateShort, xtip: dateStr, onPick: pickDay };
+      lineChart($('#chBook'), Object.assign({ series: [{ name: 'In production', color: 'var(--c1)', data: ser.prodM.slice(0, n) }, { name: 'Awaiting material', color: 'var(--c2)', data: ser.awaitM.slice(0, n) }], stack: true, yfmt: v => n0(v / 1000) + 'k', vfmt: v => n0(v) + ' m', aria: 'Open order book over time' }, x));
+      lineChart($('#chOtif'), Object.assign({ series: [{ name: 'On-time %', color: 'var(--c1)', area: true, data: ser.otifRoll.slice(0, n) }], ymax: 100, yfmt: v => Math.round(v) + '%', vfmt: v => n1(v) + '%', ref: [{ y: 90, label: 'Target 90%' }], aria: 'Rolling on-time delivery' }, x));
+    } };
+  }
+
+  function ordStatus(o, d) {
+    if (o.ship !== null && o.ship <= d) return o.ship > o.due ? { k: 'late', l: 'Shipped late', c: 'warn' } : { k: 'ok', l: 'Shipped on time', c: 'good' };
+    if (o.release === null || o.release > d) return { k: 'await', l: 'Awaiting material', c: d - o.arrival >= 2 ? 'crit' : 'warn', od: o.due < d };
+    let s = 0; while (s < 3 && (o.done[s] === null || o.done[s] <= d)) s++;
+    const started = o.start[s] !== null && o.start[s] <= d;
+    return { k: 'prod', l: (started ? 'In ' : 'Queued · ') + E.STAGES[s].name.toLowerCase(), c: 'info', od: o.due < d, s };
+  }
+  function viewOrders() {
+    const d = UI.day, sim = UI.sim;
+    let list = sim.orders.filter(o => o.arrival <= d).map(o => ({ o, st: ordStatus(o, d) }));
+    const cnt = k => list.filter(x => k === 'all' || x.st.k === k || (k === 'overdue' && x.st.od)).length;
+    const F = [['all', 'All'], ['await', 'Awaiting material'], ['prod', 'In production'], ['overdue', 'Overdue'], ['ok', 'Shipped on time'], ['late', 'Shipped late']];
+    const f = UI.oFilter, pf = UI.oProd;
+    const shown = list.filter(x => (f === 'all' || x.st.k === f || (f === 'overdue' && x.st.od)) && (pf === 'all' || x.o.product === pf)).sort((a, b) => b.o.arrival - a.o.arrival || b.o.n - a.o.n);
+    const rows = shown.slice(0, 80).map(({ o, st }) => {
+      const dots = [0, 1, 2, 3].map(s => `<i style="${o.done[s] !== null && o.done[s] <= d ? 'background:' + SC[s] : ''}" class="${st.s === s ? 'cur' : ''}" title="${STAGE_NAMES[s]}"></i>`).join('');
+      const slack = (o.ship !== null && o.ship <= d) ? (o.due - o.ship >= 0 ? `${o.due - o.ship} d early` : `${o.ship - o.due} d late`) : (o.due >= d ? `due in ${o.due - d} d` : `${d - o.due} d overdue`);
+      return `<tr><td class="id">${o.id}</td><td>${esc(o.customer)}</td><td>${esc(prodOf(o.product).name)}</td><td class="n">${n0(o.qty)}</td><td>${dateShort(o.arrival)}</td><td>${dateShort(o.due)}</td><td>${pill(st.c, st.l)}${st.od ? ' ' + pill('crit', 'Overdue') : ''}</td><td><span class="dots">${dots}</span></td><td class="n">${slack}</td></tr>`;
+    }).join('');
+    const html = `<div class="stack">
+      <div class="grid2">
+        <div class="card"><div class="card-h"><h3>Received vs shipped</h3>${legend([['Received', 'var(--c1)'], ['Shipped', 'var(--c3)']])}</div><div class="ch" id="chFlow"></div><div class="sub" style="margin-top:6px">The gap between the lines is the open order book.</div></div>
+        <div class="card"><div class="card-h"><h3>Lead time of shipped orders</h3><span class="sub">days from receipt to dispatch</span></div><div class="ch" id="chLead"></div></div>
+      </div>
+      <div class="card"><div class="card-h"><h3>Order book</h3><span class="sub">${n0(list.length)} orders received by ${dateStr(d)}</span></div>
+        <div class="chips">${F.map(([k, l]) => `<button class="chip" data-ofilter="${k}" aria-pressed="${f === k}">${l} · ${cnt(k)}</button>`).join('')}
+          <select class="sel" id="oProd" style="width:auto;margin-left:auto" aria-label="Filter by product"><option value="all">All products</option>${E.PRODUCTS.map(p => `<option value="${p.id}"${pf === p.id ? ' selected' : ''}>${esc(p.name)}</option>`).join('')}</select></div>
+        <div class="tbl tall"><table><thead><tr><th>Order</th><th>Customer</th><th>Product</th><th class="n">Meters</th><th>Received</th><th>Due</th><th>Status</th><th>Stages</th><th class="n">Timing</th></tr></thead><tbody>${rows || '<tr><td colspan="9" class="empty">No orders match this filter yet.</td></tr>'}</tbody></table></div>
+        <div class="sub" style="margin-top:8px">${shown.length > 80 ? 'Showing the 80 most recent of ' + shown.length + '. ' : ''}Stage squares fill as weaving, dyeing, finishing and packing complete; the outlined square is where the order sits now.</div>
+      </div></div>`;
+    return { html, after() {
+      const n = d + 1;
+      lineChart($('#chFlow'), { n, mark: d, xlab: dateShort, xtip: dateStr, onPick: pickDay, series: [{ name: 'Received', color: 'var(--c1)', data: UI.ser.recvCum.slice(0, n) }, { name: 'Shipped', color: 'var(--c3)', data: UI.ser.shipCum.slice(0, n) }], yfmt: v => n0(v / 1000) + 'k', vfmt: v => n0(v) + ' m', aria: 'Cumulative meters received and shipped' });
+      const leads = sim.orders.filter(o => o.ship !== null && o.ship <= d).map(o => o.ship - o.arrival);
+      const bins = new Array(10).fill(0); leads.forEach(l => bins[Math.min(9, Math.floor(l / 2))]++);
+      barChart($('#chLead'), { values: bins, labels: bins.map((_, i) => i === 9 ? '18+' : (i * 2) + '-' + (i * 2 + 1)), every: 1, color: () => 'var(--c1)', aria: 'Distribution of order lead times' });
+    } };
+  }
+
+  function viewProduction() {
+    const d = UI.day, sim = UI.sim, cfg = sim.cfg, ser = UI.ser, n = d + 1, kp = E.kpiAt(sim, d);
+    const sched = sim.orders.filter(o => o.arrival <= d && (o.ship === null || o.ship > d - 3) && o.release !== null && o.release <= d || (o.arrival <= d && o.ship === null))
+      .sort((a, b) => a.due - b.due || a.n - b.n).slice(0, 12);
+    const stageCards = E.STAGES.map((st, i) => {
+      let down = 0, starve = 0, lost = 0;
+      for (let t = 1; t <= d; t++) { down += sim.days[t].down[i]; starve += sim.days[t].starve[i]; lost += sim.days[t].lost[i]; }
+      const nominal = st.cap * cfg.cap[st.id], wip = sim.days[d].wip[i], qd = wip / (nominal * 0.93);
+      return `<div class="stage"><h4><i style="background:${SC[i]}"></i>${st.name}</h4>
+        <div class="bar" style="margin-top:10px"><i style="width:${clamp(kp.util[i] * 100, 0, 100)}%;background:${SC[i]}"></i></div>
+        <dl><dt>Capacity</dt><dd>${n0(nominal)} m/day</dd><dt>Utilisation (of nominal)</dt><dd>${n0(kp.util[i] * 100)}%</dd><dt>Load when running</dt><dd>${n0(kp.utilAvail[i] * 100)}%</dd><dt>Queue</dt><dd>${n0(wip)} m</dd><dt>Queue length</dt><dd>${n1(qd)} days</dd><dt>Breakdown days</dt><dd>${n0(down)}</dd><dt>Changeover loss</dt><dd>${n0(lost)} m</dd><dt>Supply-short days</dt><dd>${n0(starve)}</dd></dl></div>`;
+    }).join('');
+    const rule = { edd: 'Earliest due date first', fifo: 'First in, first out', campaign: 'Campaign by product' }[cfg.rule];
+    const html = `<div class="stack">
+      <div class="stages">${stageCards}</div>
+      <div class="grid2">
+        <div class="card"><div class="card-h"><h3>Utilisation by stage</h3><span class="sub">7-day average</span></div>${legend(E.STAGES.map((s, i) => [s.name, SC[i]]))}<div class="ch" id="chUtil" style="margin-top:8px"></div></div>
+        <div class="card"><div class="card-h"><h3>Work waiting at each stage</h3></div>${legend(E.STAGES.map((s, i) => [s.name, SC[i]]))}<div class="ch" id="chWip" style="margin-top:8px"></div></div>
+      </div>
+      <div class="card"><div class="card-h"><h3>Shop-floor timeline</h3><span class="sub">Sequencing rule: ${rule}. Triangle marks the due date.</span></div>
+        ${legend([['Weaving', SC[0]], ['Dyeing', SC[1]], ['Finishing', SC[2]], ['Packing', SC[3]], ['Waiting for material', 'var(--c2)']])}
+        <div class="ch" id="chGantt" style="margin-top:8px"></div>
+        ${sched.length ? '' : '<div class="empty">No orders in flight yet.</div>'}
+      </div></div>`;
+    return { html, after() {
+      const x = { n, mark: d, xlab: dateShort, xtip: dateStr, onPick: pickDay };
+      lineChart($('#chUtil'), Object.assign({ series: E.STAGES.map((s, i) => ({ name: s.name, color: SC[i], data: roll(ser.util[i], 7).slice(0, n) })), ymax: 100, yfmt: v => Math.round(v) + '%', vfmt: v => n0(v) + '%', ref: [{ y: 100, label: '' }], aria: 'Utilisation by stage' }, x));
+      lineChart($('#chWip'), Object.assign({ series: E.STAGES.map((s, i) => ({ name: s.name, color: SC[i], data: ser.wip[i].slice(0, n) })), stack: true, yfmt: v => n0(v / 1000) + 'k', vfmt: v => n0(v) + ' m', aria: 'Meters waiting at each stage' }, x));
+      if (sched.length) gantt($('#chGantt'), sched, d);
+    } };
+  }
+
+  function viewInventory() {
+    const d = UI.day, sim = UI.sim, s = sim.days[d], ser = UI.ser, n = d + 1;
+    const rows = [];
+    let below = 0, short = 0, rawValue = 0, consValue = 0;
+    ['raw', 'cons'].forEach(kind => {
+      rows.push(`<tr class="grp"><td colspan="7">${kind === 'raw' ? 'Raw materials' : 'Consumables'}</td></tr>`);
+      E.ITEMS.filter(it => it.kind === kind).forEach(it => {
+        const i = it.idx, plan = sim.plan[i], oh = s.onHand[i];
+        let use = 0, c = 0; for (let t = Math.max(1, d - 6); t <= d; t++) { use += sim.days[t].used[i]; c++; }
+        use = c ? use / c : 0; const cover = use > 0 ? oh / use : null;
+        const isShort = d > 0 && (s.short[i] || oh < 1);
+        let st; if (isShort) { st = pill('crit', 'Short'); short++; } else if (oh < plan.rop) { st = s.onOrder[i] > 0 ? pill('info', 'On order') : pill('warn', 'Below reorder'); below++; } else st = pill('good', 'OK');
+        const hist = []; for (let t = Math.max(0, d - 29); t <= d; t++) hist.push(sim.days[t].onHand[i]);
+        if (kind === 'raw') rawValue += oh * it.cost; else consValue += oh * it.cost;
+        rows.push(`<tr><td>${esc(it.name)}</td><td class="n">${n0(oh)} ${it.unit}</td><td class="n">${cover == null ? '-' : n1(cover) + ' d'}</td><td class="n">${n0(plan.rop)}</td><td class="n">${n0(s.onOrder[i])}</td><td>${st}</td><td>${spark(hist, plan.rop, isShort ? 'var(--crit)' : 'var(--c1)')}</td></tr>`);
+      });
+    });
+    const T = (l, v, sub) => `<div class="kpi"><label>${l}</label><div class="v">${v}</div><div class="s">${sub}</div></div>`;
+    const html = `<div class="stack">
+      <div class="kpis">${T('Stock value', inr(s.invValue), `raw ${inr(rawValue)}, consumables ${inr(consValue)}`)}${T('Items short', n0(short), 'blocking orders or a stage today')}${T('At or below reorder point', n0(below), 'replenishment under way or due')}${T('Purchase orders open', n0(sim.pos.filter(p => p.placed <= d && !(p.arrive <= d)).length), inr(sim.pos.filter(p => p.placed <= d && !(p.arrive <= d)).reduce((a, p) => a + p.value, 0)) + ' on order')}</div>
+      <div class="card"><div class="card-h"><h3>Stock position</h3><span class="sub">${dateStr(d)}. Sparkline shows the last 30 days; the dashed line is the reorder point.</span></div>
+        <div class="tbl"><table><thead><tr><th>Item</th><th class="n">On hand</th><th class="n">Cover</th><th class="n">Reorder point</th><th class="n">On order</th><th>Status</th><th>Last 30 days</th></tr></thead><tbody>${rows.join('')}</tbody></table></div></div>
+      <div class="card"><div class="card-h"><h3>Stock value over time</h3>${legend([['Raw materials', 'var(--c1)'], ['Consumables', 'var(--c3)']])}</div><div class="ch" id="chInv"></div></div></div>`;
+    return { html, after() {
+      lineChart($('#chInv'), { n, mark: d, xlab: dateShort, xtip: dateStr, onPick: pickDay, stack: true, series: [{ name: 'Raw materials', color: 'var(--c1)', data: ser.invRaw.slice(0, n) }, { name: 'Consumables', color: 'var(--c3)', data: ser.invCons.slice(0, n) }], yfmt: v => '₹' + n0(v / 1e5) + ' L', vfmt: v => inr(v), ml: 62, aria: 'Stock value over time' });
+    } };
+  }
+
+  function viewProcurement() {
+    const d = UI.day, sim = UI.sim;
+    const all = sim.pos.filter(p => p.placed <= d);
+    const st = p => p.arrive <= d ? (p.arrive > p.eta ? { k: 'late', l: `Received ${p.arrive - p.eta} d late`, c: 'warn' } : { k: 'ok', l: 'Received on time', c: 'good' })
+      : (d > p.eta ? { k: 'over', l: 'Overdue', c: 'crit' } : { k: 'open', l: 'In transit', c: 'info' });
+    const withSt = all.map(p => ({ p, s: st(p) }));
+    const recv = withSt.filter(x => x.p.arrive <= d), onTime = recv.filter(x => x.s.k === 'ok').length;
+    const openV = withSt.filter(x => x.p.arrive > d).reduce((a, x) => a + x.p.value, 0);
+    const f = UI.poFilter;
+    const match = x => f === 'all' || (f === 'open' && x.p.arrive > d) || (f === 'late' && (x.s.k === 'late' || x.s.k === 'over'));
+    const shown = withSt.filter(match).reverse();
+    const T = (l, v, sub) => `<div class="kpi"><label>${l}</label><div class="v">${v}</div><div class="s">${sub}</div></div>`;
+    const rows = shown.slice(0, 80).map(({ p, s }) => `<tr><td class="id">${p.id}</td><td>${esc(sim.items[p.item].name)}</td><td>${esc(p.supplier)}</td><td class="n">${n0(p.qty)} ${sim.items[p.item].unit}</td><td>${dateShort(p.placed)}</td><td>${dateShort(p.eta)}</td><td>${p.arrive <= d ? dateShort(p.arrive) : 'expected ' + dateShort(p.arrive)}</td><td>${pill(s.c, s.l)}</td><td class="n">${inr(p.value)}</td></tr>`).join('');
+    const html = `<div class="stack">
+      <div class="kpis">${T('Purchase orders raised', n0(all.length), `${inr(all.length * E.PARAMS.poFee)} ordering cost`)}${T('Received', n0(recv.length), inr(recv.reduce((a, x) => a + x.p.value, 0)) + ' of material')}${T('Supplier on-time rate', recv.length ? n0(onTime / recv.length * 100) + '%' : 'n/a', 'received on or before the promised date')}${T('Still on order', inr(openV), n0(withSt.filter(x => x.p.arrive > d).length) + ' purchase orders')}</div>
+      <div class="card"><div class="card-h"><h3>Purchase orders</h3><span class="sub">Raised automatically when stock on hand plus on order drops to the reorder point</span></div>
+        <div class="chips">${[['all', 'All'], ['open', 'Open'], ['late', 'Late or overdue']].map(([k, l]) => `<button class="chip" data-pofilter="${k}" aria-pressed="${f === k}">${l}</button>`).join('')}</div>
+        <div class="tbl tall"><table><thead><tr><th>PO</th><th>Item</th><th>Supplier</th><th class="n">Quantity</th><th>Raised</th><th>Promised</th><th>Arrival</th><th>Status</th><th class="n">Value</th></tr></thead><tbody>${rows || '<tr><td colspan="9" class="empty">No purchase orders match yet.</td></tr>'}</tbody></table></div>
+        ${shown.length > 80 ? `<div class="sub" style="margin-top:8px">Showing the 80 most recent of ${shown.length}.</div>` : ''}
+      </div></div>`;
+    return { html, after() {} };
+  }
+
+  function runCompare() {
+    const key = cmpKey();
+    if (UI.cmp.key === key && UI.cmp.data) return;
+    if (UI.cmp.busy && UI.cmp.pending === key) return;
+    UI.cmp.busy = true; UI.cmp.pending = key;
+    setTimeout(() => {
+      const base = { horizon: UI.cfg.horizon, seed: UI.cfg.seed };
+      const reps = 16, rows = E.PRESETS.map(p => ({ name: p.name, r: E.runMany(E.presetCfg(p.id, Object.assign({}, E.DEFAULTS, base)), reps) }));
+      const mine = { name: 'Your current settings', r: E.runMany(UI.cfg, reps), mine: true };
+      const pts = [0, 2, 4, 6, 8, 10, 12].map(dd => { const r = E.runMany(Object.assign({}, UI.cfg, { safetyDays: dd }), 12); return { days: dd, otif: r.otif, avgInv: r.avgInv }; });
+      UI.cmp = { key, data: { rows: rows.concat([mine]), pts, reps }, busy: false };
+      if (UI.tab === 'compare') renderView();
+    }, 40);
+  }
+  function viewCompare() {
+    runCompare();
+    if (!UI.cmp.data || UI.cmp.key !== cmpKey()) {
+      return { html: `<div class="card"><div class="loading">Running ${E.PRESETS.length + 1} scenarios with 16 simulated runs each...</div></div>`, after() {} };
+    }
+    const { rows, pts, reps } = UI.cmp.data;
+    const cols = [
+      { k: 'otif', l: 'On-time', f: v => v == null ? 'n/a' : n1(v) + '%', hb: true, bar: v => v, rng: r => r.otifP10 == null ? '' : `${n0(r.otifP10)}-${n0(r.otifP90)}%` },
+      { k: 'lead', l: 'Avg lead time', f: v => v == null ? 'n/a' : n1(v) + ' d', hb: false },
+      { k: 'openM', l: 'Open book at end', f: v => n0(v) + ' m', hb: false },
+      { k: 'lateOpen', l: 'Overdue open', f: v => n1(v), hb: false },
+      { k: 'stockoutDays', l: 'Short item-days', f: v => n0(v), hb: false },
+      { k: 'avgInv', l: 'Avg stock', f: v => inr(v), hb: false },
+      { k: 'contribution', l: 'Contribution', f: v => inr(v), hb: true, rng: r => `${inr(r.contributionP10)} to ${inr(r.contributionP90)}` },
+      { k: 'turns', l: 'Stock turns / yr', f: v => v == null ? 'n/a' : n1(v), hb: true }
+    ];
+    const best = {}; cols.forEach(c => { const vals = rows.map(r => r.r[c.k]).filter(v => v != null); best[c.k] = c.hb ? Math.max(...vals) : Math.min(...vals); });
+    const tr = rows.map(r => `<tr${r.mine ? ' style="background:var(--accent-soft)"' : ''}><td style="font-weight:${r.mine ? 700 : 550}">${esc(r.name)}</td>${cols.map(c => { const v = r.r[c.k]; const isBest = v != null && v === best[c.k]; return `<td class="n ${isBest ? 'best' : ''}">${c.bar && v != null ? `<span class="mini"><i style="width:${clamp(v, 0, 100)}%"></i></span>` : ''}${c.f(v)}${isBest ? ' ✓' : ''}${c.rng && v != null ? `<div class="rng">${c.rng(r.r)}</div>` : ''}</td>`; }).join('')}</tr>`).join('');
+    const html = `<div class="stack">
+      <div class="card"><div class="card-h"><h3>Scenario comparison</h3><span class="sub">Average of ${reps} simulated runs of ${UI.cfg.horizon} days each. ✓ marks the best value in a column. Smaller grey figures show the middle 80% of runs (10th to 90th percentile).</span></div>
+        <div class="tbl"><table class="cmp"><thead><tr><th>Scenario</th>${cols.map(c => `<th class="n">${c.l}</th>`).join('')}</tr></thead><tbody>${tr}</tbody></table></div>
+        <div class="note">Every scenario sees the same customer orders and machine luck, so differences come from the settings. Averages smooth out one-off bad weeks that a single run can show.</div></div>
+      <div class="card"><div class="card-h"><h3>How much safety stock is enough?</h3><span class="sub">Uses your current settings</span></div><div class="ch" id="chTrade"></div>
+        <div class="note">Each point is a safety stock level in days of cover. Service improves quickly at first, then flattens while the cost of holding stock keeps rising.</div></div></div>`;
+    return { html, after() { tradeoff($('#chTrade'), pts, UI.cfg.safetyDays); } };
+  }
+
+  /* ---------------- report ---------------- */
+  function scenarioName() {
+    for (const p of E.PRESETS) {
+      const pc = E.presetCfg(p.id, Object.assign({}, E.DEFAULTS, { horizon: UI.cfg.horizon, seed: UI.cfg.seed }));
+      pc.cap = Object.assign({}, E.DEFAULTS.cap, pc.cap);
+      if (sameSettings(UI.cfg, pc)) return p.name;
+    }
+    return 'Custom scenario';
+  }
+
+  function findings(sim, kp, d) {
+    const out = [], P = E.PARAMS;
+    if (d < 7) return [{ sev: 'neu', head: 'Too early to judge', text: 'Move the day slider forward (or press play) so that orders have had time to flow through the plant.' }];
+    if (kp.otif == null) out.push({ sev: 'neu', head: 'Service', text: 'No orders have fallen due yet.' });
+    else out.push({ sev: kp.otif >= 95 ? 'good' : kp.otif >= 90 ? 'warn' : 'crit', head: 'Service level',
+      text: `${n1(kp.otif)}% of the ${n0(kp.elig)} orders that fell due were shipped on or before their due date (target 90%). ${n0(kp.lateOpen)} open orders are already overdue and ${n0(kp.lateShip)} shipped late.` });
+    if (kp.bottleneck >= 0) {
+      const st = E.STAGES[kp.bottleneck], nominal = st.cap * sim.cfg.cap[st.id], q = sim.days[d].wip[kp.bottleneck] / (nominal * 0.93), u = kp.util[kp.bottleneck] * 100;
+      out.push({ sev: u > 90 || q > 4 ? 'crit' : u > 80 || q > 2.5 ? 'warn' : 'good', head: 'Bottleneck: ' + st.name,
+        text: `${st.name} ran at ${n0(u)}% of nominal capacity and holds ${n0(sim.days[d].wip[kp.bottleneck])} m of queued work (${n1(q)} days of output). ${u > 85 ? 'Any extra demand lands here first.' : 'There is headroom at the moment.'}` });
+    }
+    const shortDays = E.ITEMS.map(it => { let n = 0; for (let t = 1; t <= d; t++) n += sim.days[t].short[it.idx]; return { it, n }; }).filter(x => x.n > 0).sort((a, b) => b.n - a.n);
+    if (shortDays.length) {
+      const top = shortDays[0], held = sim.orders.filter(o => o.arrival <= d && o.blocked > 0).length;
+      out.push({ sev: top.n > d * 0.2 ? 'crit' : 'warn', head: 'Material shortages',
+        text: `${top.it.name} was short on ${n0(top.n)} of ${d} days${shortDays.length > 1 ? ', followed by ' + shortDays.slice(1, 3).map(x => x.it.name + ' (' + x.n + ')').join(' and ') : ''}. ${n0(held)} orders have been held at least one day waiting for material.` });
+    } else out.push({ sev: 'good', head: 'Material availability', text: 'No material shortages so far.' });
+    const recv = sim.pos.filter(p => p.arrive <= d);
+    if (recv.length) {
+      const by = {}; recv.forEach(p => { const b = by[p.supplier] || (by[p.supplier] = { n: 0, late: 0, days: 0 }); b.n++; if (p.arrive > p.eta) { b.late++; b.days += p.arrive - p.eta; } });
+      const rows = Object.entries(by).map(([k, b]) => ({ k, ...b, rate: 1 - b.late / b.n })).sort((a, b) => a.rate - b.rate);
+      const tot = recv.filter(p => p.arrive <= p.eta).length / recv.length * 100;
+      out.push({ sev: tot >= 90 ? 'good' : tot >= 75 ? 'warn' : 'crit', head: 'Supplier reliability',
+        text: `${n0(tot)}% of ${recv.length} deliveries arrived on or before the promised date. Weakest: ${rows[0].k} (${n0(rows[0].rate * 100)}% on time, ${rows[0].n - rows[0].late} of ${rows[0].n} deliveries${rows[0].late ? ', ' + n1(rows[0].days / rows[0].late) + ' days late on average when late' : ''}).` });
+    }
+    const margin = kp.revenue ? kp.contribution / kp.revenue * 100 : 0;
+    const big = Object.entries(kp.costs).sort((a, b) => b[1] - a[1])[0];
+    out.push({ sev: margin > 20 ? 'good' : margin > 10 ? 'warn' : 'crit', head: 'Profitability',
+      text: `Contribution of ${inr(kp.contribution)} on ${inr(kp.revenue)} shipped revenue (${n1(margin)}% margin). Late-delivery penalties cost ${inr(kp.penalties)}; the largest cost is ${big[0]} at ${inr(big[1])}.` });
+    if (kp.turns != null) out.push({ sev: 'neu', head: 'Working capital', text: `Average stock of ${inr(kp.avgInv)} turns ${n1(kp.turns)} times a year. Carrying it costs about ${inr(kp.avgInv * P.holdRate)} a year at ${n0(P.holdRate * 100)}%.` });
+    return out;
+  }
+
+  function runLevers() {
+    const key = cmpKey();
+    if (UI.lev.key === key && UI.lev.data) return;
+    if (UI.lev.busy && UI.lev.pending === key) return;
+    UI.lev.busy = true; UI.lev.pending = key;
+    setTimeout(() => {
+      const reps = 12, cur = UI.cfg, kp = E.kpiAt(UI.sim, UI.sim.H), bn = kp.bottleneck >= 0 ? E.STAGES[kp.bottleneck] : E.STAGES[1];
+      const withCap = Object.assign({}, cur, { cap: Object.assign({}, cur.cap, { [bn.id]: cur.cap[bn.id] * 1.1 }) });
+      const defs = [
+        { name: `${bn.name} capacity +10%`, cfg: withCap },
+        { name: 'Safety stock +2 days', cfg: Object.assign({}, cur, { safetyDays: cur.safetyDays + 2 }) },
+        { name: 'Campaign sequencing', cfg: Object.assign({}, cur, { rule: 'campaign' }), skip: cur.rule === 'campaign' },
+        { name: 'Breakdowns halved', cfg: Object.assign({}, cur, { breakdown: cur.breakdown / 2 }) },
+        { name: 'Late deliveries halved', cfg: Object.assign({}, cur, { lateProb: cur.lateProb / 2 }) }
+      ].filter(x => !x.skip);
+      const base = E.runMany(cur, reps);
+      const rows = defs.map(x => ({ name: x.name, r: E.runMany(x.cfg, reps) }));
+      UI.lev = { key, data: { base, rows, reps }, busy: false };
+      if (UI.tab === 'report') renderView();
+    }, 40);
+  }
+
+  function ordersCsv() {
+    const sim = UI.sim, H = sim.H;
+    return csv([['Order', 'Customer', 'Product', 'Meters', 'Received', 'Due', 'Released', 'Shipped', 'Status', 'Days late', 'Value INR']].concat(sim.orders.map(o => {
+      const st = ordStatus(o, H), late = o.ship !== null ? Math.max(0, o.ship - o.due) : Math.max(0, H - o.due);
+      return [o.id, o.customer, prodOf(o.product).name, o.qty, iso(o.arrival), iso(o.due), iso(o.release || 0), iso(o.ship || 0), st.l, late, Math.round(o.value)];
+    })));
+  }
+  function posCsv() {
+    const sim = UI.sim;
+    return csv([['PO', 'Item', 'Supplier', 'Quantity', 'Unit', 'Raised', 'Promised', 'Arrival', 'Days late', 'Received in run', 'Value INR']].concat(sim.pos.map(p => {
+      const it = sim.items[p.item]; return [p.id, it.name, p.supplier, Math.round(p.qty), it.unit, iso(p.placed), iso(p.eta), iso(p.arrive), Math.max(0, p.arrive - p.eta), p.arrive <= sim.H ? 'yes' : 'no', Math.round(p.value)];
+    })));
+  }
+  function dailyCsv() {
+    const sim = UI.sim, head = ['Day', 'Date', 'Meters received', 'Meters shipped', 'Orders received', 'Orders shipped', 'Awaiting material (m)', 'Stock value INR'];
+    sim.stages.forEach(s => head.push(s.name + ' processed (m)', s.name + ' queue (m)'));
+    sim.items.forEach(i => head.push(i.name + ' on hand (' + i.unit + ')'));
+    return csv([head].concat(sim.days.slice(1).map((s, k) => {
+      const row = [k + 1, iso(k + 1), Math.round(s.arrM), Math.round(s.shipM), s.arrCnt, s.shipCnt, Math.round(s.awaitM), Math.round(s.invValue)];
+      sim.stages.forEach((_, i) => row.push(Math.round(s.proc[i]), Math.round(s.wip[i])));
+      s.onHand.forEach(q => row.push(Math.round(q * 10) / 10));
+      return row;
+    })));
+  }
+  function saveScenario() {
+    download('loomline-scenario.json', JSON.stringify({ app: 'loomline', version: 1, savedAt: new Date().toISOString(), settings: UI.cfg, data: E.getData() }, null, 2), 'application/json');
+  }
+  function loadScenario(text) {
+    const o = JSON.parse(text);
+    if (!o || o.app !== 'loomline' || !o.settings) throw new Error('This is not a Loomline scenario file');
+    if (o.data) E.setData(o.data);
+    UI.cfg = sanitizeCfg(o.settings); UI.draft = null;
+  }
+
+  function viewReport() {
+    runLevers();
+    const d = UI.day, sim = UI.sim, kp = E.kpiAt(sim, d), kb = E.kpiAt(UI.base, d), c = kp.costs, rev = kp.revenue || 1;
+    const fnd = findings(sim, kp, d);
+    const costRow = (l, v, cls) => `<tr${cls ? ` class="${cls}"` : ''}><td>${l}</td><td class="n">${inr(v)}</td><td class="n">${kp.revenue ? n1(v / rev * 100) + '%' : '-'}</td></tr>`;
+    const lev = UI.lev.data && UI.lev.key === cmpKey() ? UI.lev.data : null;
+    const dd = (v, b, fmt, hb) => { const x = v - b; if (Math.abs(x) < 1e-9) return '<td class="n">-</td>'; return `<td class="n ${(x > 0) === hb ? 'gd' : 'bd'}">${x > 0 ? '+' : '-'}${fmt(Math.abs(x))}</td>`; };
+    const levHtml = lev ? `<div class="tbl"><table class="cmp"><thead><tr><th>Change (one at a time)</th><th class="n">On-time</th><th class="n">Contribution</th><th class="n">Average stock</th></tr></thead><tbody>
+        <tr><td><b>Current settings</b></td><td class="n">${n1(lev.base.otif)}%</td><td class="n">${inr(lev.base.contribution)}</td><td class="n">${inr(lev.base.avgInv)}</td></tr>
+        ${lev.rows.map(x => `<tr><td>${esc(x.name)}</td>${dd(x.r.otif, lev.base.otif, v => n1(v) + ' pts', true)}${dd(x.r.contribution, lev.base.contribution, inr, true)}${dd(x.r.avgInv, lev.base.avgInv, inr, false)}</tr>`).join('')}</tbody></table></div>
+        <div class="note">Average of ${lev.reps} runs per row, same demand and machine luck throughout. On-time differences under about 2 points are within normal run-to-run noise (current settings: standard deviation ${n1(lev.base.otifSd)} pts).</div>`
+      : '<div class="loading">Testing improvement levers...</div>';
+    const pill2 = f => pill(f.sev, { good: 'On track', warn: 'Watch', crit: 'Act', neu: 'Info' }[f.sev]);
+    const set = [['Scenario', scenarioName()], ['Run', `${sim.H} days, seed ${UI.cfg.seed}`], ['Customer demand', Math.round(UI.cfg.demand * 100) + '% of plan'], ['Supplier lead time', Math.round(UI.cfg.supplierLT * 100) + '% of normal, ' + Math.round(UI.cfg.lateProb * 100) + '% late'],
+      ['Safety stock', UI.cfg.safetyDays + ' days'], ['Breakdowns', Math.round(UI.cfg.breakdown * 100) + '% per line per day'], ['Capacity', E.STAGES.map(s => s.name + ' ' + Math.round(UI.cfg.cap[s.id] * 100) + '%').join(', ')],
+      ['Sequencing', { edd: 'Earliest due date', fifo: 'First in, first out', campaign: 'Campaign by product' }[UI.cfg.rule]], ['Master data', E.dataInfo().custom ? 'Custom (edited)' : 'Demo data']];
+    const html = `<div class="stack report">
+      <div class="card"><div class="card-h"><h3>Simulation report</h3><span class="sub">${scenarioName()} · ${dateStr(d)} (day ${d} of ${sim.H})</span></div>
+        <div class="actions no-print">
+          <button class="btn primary" id="rPrint">Print or save as PDF</button>
+          <button class="btn" id="rOrders">Orders (CSV)</button><button class="btn" id="rPos">Purchase orders (CSV)</button><button class="btn" id="rDaily">Daily data (CSV)</button>
+          <button class="btn" id="rSave">Save scenario</button><button class="btn" id="rLoad">Load scenario</button>
+        </div>
+        <div class="note no-print">The report describes the plant as of the day selected on the slider. CSV files cover the whole run.</div></div>
+      ${kpiTiles(kp, kb)}
+      <div class="card"><div class="card-h"><h3>What stands out</h3></div>
+        <ul class="finds">${fnd.map(f => `<li><div>${pill2(f)}</div><div><b>${esc(f.head)}</b><p>${esc(f.text)}</p></div></li>`).join('')}</ul></div>
+      <div class="grid2">
+        <div class="card"><div class="card-h"><h3>Profit and loss to date</h3></div><div class="tbl"><table><thead><tr><th>Item</th><th class="n">Amount</th><th class="n">% of revenue</th></tr></thead><tbody>
+          ${costRow('Shipped revenue', kp.revenue)}${costRow('Materials', c.materials)}${costRow('Conversion (labour, energy, overhead)', c.conversion)}${costRow('Consumables', c.consumables)}${costRow('Stock holding', c.holding)}${costRow('Purchase order handling', c.ordering)}${costRow('Late-delivery penalties', c.penalties)}${costRow('Contribution', kp.contribution, 'tot')}</tbody></table></div></div>
+        <div class="card"><div class="card-h"><h3>Settings used</h3></div><div class="tbl"><table class="wrapc"><tbody>${set.map(([k, v]) => `<tr><td>${k}</td><td>${esc(v)}</td></tr>`).join('')}</tbody></table></div></div>
+      </div>
+      <div class="card"><div class="card-h"><h3>Where to improve</h3><span class="sub">Each change tested on its own against your current settings</span></div>${levHtml}</div>
+      <div class="card"><details><summary>How the model works, and what it leaves out</summary>
+        <div class="doc"><h4>Mechanics</h4><ul>
+          <li><b>Orders</b> arrive randomly (Poisson) at ${n1(E.PARAMS.lambda)} per working day at 100% demand, Monday to Saturday. Product mix, size, customer and due date are drawn per order.</li>
+          <li><b>Release.</b> An order is released only when every raw material in its bill of materials is in stock, then the materials are issued. Waiting orders are served in due-date order.</li>
+          <li><b>Production.</b> Weaving, dyeing, finishing and packing each process up to their daily capacity, scaled by a daily efficiency draw (about 94%). An order finishes a stage and enters the next one the following day. Sunday is a weekly off.</li>
+          <li><b>Breakdowns.</b> Each line can break down on any working day; output then drops to 40% for one to three days.</li>
+          <li><b>Changeovers.</b> Switching product on a line costs the changeover capacity set for that stage. The sequencing rule decides the next order: earliest due date, first in first out, or campaign (same product first unless something is urgent).</li>
+          <li><b>Consumables</b> (lubricant, caustic, salt, softener, film) are used per 100 m processed. A stage slows down or stops when one runs out.</li>
+          <li><b>Replenishment.</b> Every material and consumable has a reorder point (lead time plus safety days of use) and an order-up-to level, ordered in lot sizes. Supplier lead time varies randomly and a share of deliveries run 2 to 6 days late. Nothing is delivered on Sundays.</li>
+          <li><b>Money.</b> Revenue is booked on shipment. Contribution = revenue - materials - conversion cost - consumables - stock holding - purchase order fees - late penalties (${n0(E.PARAMS.latePenaltyPerDay * 100)}% of order value per day late, capped at ${n0(E.PARAMS.latePenaltyCap * 100)}%).</li>
+          <li><b>Fair comparison.</b> All randomness is keyed to the seed, day and item, so two scenarios with the same seed face identical customer orders and machine luck.</li></ul>
+        <h4>Not modelled yet</h4><ul>
+          <li>Labour, shifts and overtime; one line per stage, no parallel machines or per-machine routing.</li>
+          <li>Yield loss, scrap, rework and quality holds; every meter started is shipped.</li>
+          <li>Split or partial shipments, order cancellations, expediting and price changes.</li>
+          <li>Seasonality or trends in demand; demand is stationary at the chosen level.</li>
+          <li>Multi-supplier sourcing, quantity discounts and currency effects.</li></ul>
+        <p>Figures are only as good as the master data behind them. Use the Model data tab to replace the demo numbers with your own and compare the result against what your plant actually achieves before relying on it.</p></div></details></div>
+    </div>`;
+    return { html, after() {} };
+  }
+
+  /* ---------------- model data editor ---------------- */
+  function viewData() {
+    if (!UI.draft) UI.draft = E.getData();
+    const D = UI.draft, raw = E.ITEMS.filter(i => i.kind === 'raw');
+    const cell = (path, val, o = {}) => `<input class="num ci${o.text ? ' txt' : ''}" type="${o.text ? 'text' : 'number'}" data-path="${path}"${o.scale ? ` data-scale="${o.scale}"` : ''}${o.text ? ' data-text="1"' : ''} value="${esc(o.text ? val : (val === '' || val == null || Number.isNaN(val) ? '' : +(val * (o.scale || 1)).toFixed(4)))}" step="any" aria-label="${esc(o.label)}">`;
+    const P = D.params;
+    const stages = D.stages.map((s, i) => `<tr><td>${esc(s.name)}</td><td>${cell(`stages.${i}.cap`, s.cap, { label: s.name + ' capacity' })}</td><td>${cell(`stages.${i}.changeover`, s.changeover, { label: s.name + ' changeover' })}</td><td>${cell(`stages.${i}.conv`, s.conv, { label: s.name + ' conversion cost' })}</td></tr>`).join('');
+    const prods = D.products.map((p, i) => `<tr><td>${esc(p.name)}</td><td>${cell(`products.${i}.price`, p.price, { label: p.name + ' price' })}</td><td>${cell(`products.${i}.share`, p.share, { scale: 100, label: p.name + ' share' })}</td><td>${cell(`products.${i}.size.0`, p.size[0], { label: p.name + ' min order' })}</td><td>${cell(`products.${i}.size.1`, p.size[1], { label: p.name + ' max order' })}</td><td>${cell(`products.${i}.lead`, p.lead, { label: p.name + ' promised lead time' })}</td></tr>`).join('');
+    const bom = D.products.map((p, i) => `<tr><td>${esc(p.name)}</td>${raw.map(it => `<td>${cell(`products.${i}.bom.${it.id}`, p.bom[it.id] || 0, { label: p.name + ' ' + it.name })}</td>`).join('')}</tr>`).join('');
+    const items = D.items.map((it, i) => `<tr><td>${esc(it.name)}<div class="sub">${it.kind === 'raw' ? 'raw material' : 'consumable'}</div></td><td>${esc(it.unit)}</td><td>${cell(`items.${i}.cost`, it.cost, { label: it.name + ' cost' })}</td><td>${cell(`items.${i}.lot`, it.lot, { label: it.name + ' lot size' })}</td><td>${cell(`items.${i}.lt.0`, it.lt[0], { label: it.name + ' lead time' })}</td><td>${cell(`items.${i}.lt.1`, it.lt[1], { label: it.name + ' lead time spread' })}</td><td>${cell(`items.${i}.cover`, it.cover, { label: it.name + ' cover days' })}</td><td>${it.kind === 'cons' ? cell(`items.${i}.rate`, it.rate, { label: it.name + ' use per 100 m' }) : '<span class="sub">via BOM</span>'}</td><td>${cell(`items.${i}.supplier`, it.supplier, { text: 1, label: it.name + ' supplier' })}</td></tr>`).join('');
+    const shareSum = D.products.reduce((a, p) => a + (+p.share || 0), 0) * 100;
+    const html = `<div class="stack data">
+      <div class="card"><div class="card-h"><h3>Model data</h3><span class="sub">${E.dataInfo().custom ? 'Custom data in use' : 'Demo data in use'}</span></div>
+        <p class="lead">Replace the demo numbers with your plant's figures. Changes take effect when you press Apply. The structure (four stages, four products, twelve materials) stays fixed; the numbers, names, supplier names, bill of materials and customers can all change.</p>
+        ${UI.dataError ? `<div class="err" role="alert">${esc(UI.dataError)}</div>` : ''}
+        <div class="actions"><button class="btn primary" id="dApply">Apply changes</button><button class="btn" id="dDiscard">Discard edits</button><button class="btn" id="dReset">Back to demo data</button><button class="btn" id="dExport">Export data (JSON)</button><button class="btn" id="dImport">Import data (JSON)</button></div></div>
+      <div class="card"><div class="card-h"><h3>Orders and costs</h3></div><div class="tbl"><table><tbody>
+        <tr><td>Orders per working day at 100% demand</td><td>${cell('params.lambda', P.lambda, { label: 'Orders per day' })}</td></tr>
+        <tr><td>Stock holding cost (% of value per year)</td><td>${cell('params.holdRate', P.holdRate, { scale: 100, label: 'Holding rate percent' })}</td></tr>
+        <tr><td>Cost per purchase order (INR)</td><td>${cell('params.poFee', P.poFee, { label: 'Purchase order fee' })}</td></tr>
+        <tr><td>Late penalty (% of order value per day late)</td><td>${cell('params.latePenaltyPerDay', P.latePenaltyPerDay, { scale: 100, label: 'Late penalty percent per day' })}</td></tr>
+        <tr><td>Late penalty cap (% of order value)</td><td>${cell('params.latePenaltyCap', P.latePenaltyCap, { scale: 100, label: 'Late penalty cap percent' })}</td></tr></tbody></table></div></div>
+      <div class="card"><div class="card-h"><h3>Production stages</h3></div><div class="tbl"><table><thead><tr><th>Stage</th><th>Capacity (m/day)</th><th>Changeover (m lost)</th><th>Conversion cost (INR/m)</th></tr></thead><tbody>${stages}</tbody></table></div></div>
+      <div class="card"><div class="card-h"><h3>Products</h3><span class="sub">Mix must add up to 100%: now <b id="shareSum">${n0(shareSum)}</b>%</span></div><div class="tbl"><table><thead><tr><th>Product</th><th>Price (INR/m)</th><th>Order mix (%)</th><th>Min order (m)</th><th>Max order (m)</th><th>Lead time (days)</th></tr></thead><tbody>${prods}</tbody></table></div></div>
+      <div class="card"><div class="card-h"><h3>Bill of materials</h3><span class="sub">Quantity of each raw material per 100 m of fabric (leave 0 if not used)</span></div><div class="tbl"><table><thead><tr><th>Product</th>${raw.map(it => `<th>${esc(it.name)} (${it.unit})</th>`).join('')}</tr></thead><tbody>${bom}</tbody></table></div></div>
+      <div class="card"><div class="card-h"><h3>Materials and consumables</h3></div><div class="tbl"><table><thead><tr><th>Item</th><th>Unit</th><th>Cost (INR/unit)</th><th>Order lot</th><th>Lead time (days)</th><th>Lead time spread</th><th>Cover on order (days)</th><th>Use per 100 m</th><th>Supplier</th></tr></thead><tbody>${items}</tbody></table></div></div>
+      <div class="card"><div class="card-h"><h3>Customers</h3><span class="sub">One per line</span></div><textarea class="num" id="dCust" data-path="customers" data-lines="1" rows="6" aria-label="Customers, one per line">${esc(D.customers.join('\n'))}</textarea></div>
+    </div>`;
+    return { html, after() {} };
+  }
+
+  const VIEWS = { overview: ['Overview', viewOverview], orders: ['Orders', viewOrders], production: ['Production', viewProduction], inventory: ['Inventory', viewInventory], procurement: ['Procurement', viewProcurement], compare: ['Compare scenarios', viewCompare], report: ['Report', viewReport], data: ['Model data', viewData] };
+
+  function renderView() {
+    const host = $('#view');
+    const keep = host.scrollTop;
+    const v = VIEWS[UI.tab][1]();
+    const tblScroll = {}; host.querySelectorAll('.tbl.tall').forEach((el, i) => tblScroll[i] = el.scrollTop);
+    host.innerHTML = v.html; v.after();
+    host.querySelectorAll('.tbl.tall').forEach((el, i) => { if (tblScroll[i]) el.scrollTop = tblScroll[i]; });
+  }
+  function renderTabs() {
+    $('#tabs').innerHTML = Object.keys(VIEWS).map(k => `<button class="tab" role="tab" data-tab="${k}" aria-selected="${UI.tab === k}">${VIEWS[k][0]}</button>`).join('');
+  }
+  function renderScrub() {
+    const r = $('#dayRange'); r.max = UI.sim.H; r.value = UI.day;
+    $('#dayDate').textContent = dateStr(UI.day);
+    $('#dayN').textContent = UI.day < 1 ? `Day 0 of ${UI.sim.H}` : `Day ${UI.day} of ${UI.sim.H}`;
+    $('#playIcon').innerHTML = UI.playing ? '<path d="M2.5 1.5h3v11h-3zM8.5 1.5h3v11h-3z"/>' : '<path d="M3 1.5v11l9-5.5z"/>';
+    $('#play').setAttribute('aria-label', UI.playing ? 'Pause simulation' : 'Play simulation');
+  }
+  function stopPlay() { UI.playing = false; clearInterval(UI.timer); UI.timer = null; renderScrub(); }
+  function startPlay() {
+    if (UI.day >= UI.sim.H) UI.day = 0;
+    UI.playing = true; renderScrub();
+    UI.timer = setInterval(() => { if (UI.day >= UI.sim.H) { stopPlay(); return; } setDay(UI.day + 1); }, 170);
+  }
+
+  /* ---------------- settings panel ---------------- */
+  const SL = [
+    { g: 'Run', k: 'horizon', l: 'Run length', min: 30, max: 180, step: 10, get: c => c.horizon, set: (c, v) => c.horizon = v, f: v => v + ' days' },
+    { g: 'Market and suppliers', k: 'demand', l: 'Customer demand', min: 60, max: 160, step: 5, get: c => Math.round(c.demand * 100), set: (c, v) => c.demand = v / 100, f: v => v + '% of plan' },
+    { k: 'supplierLT', l: 'Supplier lead time', min: 50, max: 250, step: 10, get: c => Math.round(c.supplierLT * 100), set: (c, v) => c.supplierLT = v / 100, f: v => v + '% of normal' },
+    { k: 'lateProb', l: 'Deliveries that arrive late', min: 0, max: 40, step: 1, get: c => Math.round(c.lateProb * 100), set: (c, v) => c.lateProb = v / 100, f: v => v + '%' },
+    { g: 'Inventory policy', k: 'safetyDays', l: 'Safety stock', min: 0, max: 12, step: 1, get: c => c.safetyDays, set: (c, v) => c.safetyDays = v, f: v => v + ' days of cover' },
+    { g: 'Plant', k: 'breakdown', l: 'Machine breakdowns', min: 0, max: 15, step: 1, get: c => Math.round(c.breakdown * 100), set: (c, v) => c.breakdown = v / 100, f: v => v + '% per line per day' },
+    { g: 'Capacity', k: 'cap_weave', l: 'Weaving', min: 60, max: 150, step: 5, get: c => Math.round(c.cap.weave * 100), set: (c, v) => c.cap.weave = v / 100, f: v => v + '%' },
+    { k: 'cap_dye', l: 'Dyeing', min: 60, max: 150, step: 5, get: c => Math.round(c.cap.dye * 100), set: (c, v) => c.cap.dye = v / 100, f: v => v + '%' },
+    { k: 'cap_finish', l: 'Finishing', min: 60, max: 150, step: 5, get: c => Math.round(c.cap.finish * 100), set: (c, v) => c.cap.finish = v / 100, f: v => v + '%' },
+    { k: 'cap_pack', l: 'Packing', min: 60, max: 150, step: 5, get: c => Math.round(c.cap.pack * 100), set: (c, v) => c.cap.pack = v / 100, f: v => v + '%' }
+  ];
+  function buildPanel() {
+    let h = `<h2>Scenarios</h2><div class="presets">${E.PRESETS.map(p => `<button class="preset" data-preset="${p.id}" aria-pressed="false"><b>${esc(p.name)}</b><small>${esc(p.desc)}</small></button>`).join('')}</div>`;
+    SL.forEach(s => {
+      if (s.g) h += `<h2>${s.g}</h2>`;
+      h += `<div class="ctl"><div class="ctl-h"><label for="sl_${s.k}">${s.l}</label><output id="o_${s.k}"></output></div><input type="range" id="sl_${s.k}" data-sl="${s.k}" min="${s.min}" max="${s.max}" step="${s.step}"></div>`;
+    });
+    h += `<h2>Production sequencing</h2><select class="sel" id="rule" aria-label="Production sequencing rule"><option value="edd">Earliest due date first</option><option value="fifo">First in, first out</option><option value="campaign">Campaign by product (fewer changeovers)</option></select>
+      <h2>Randomness</h2><div class="row2"><input class="num" id="seed" type="number" min="1" max="9999" aria-label="Random seed"><button class="btn" id="reseed">New draw</button></div>
+      <div class="note">Same seed, same customer orders and breakdowns, so you can compare settings fairly.</div>
+      <h2>All settings</h2><button class="btn" id="reset" style="width:100%;justify-content:center">Reset to baseline</button>`;
+    $('#panel').innerHTML = h;
+    syncPanel();
+  }
+  function syncPanel() {
+    SL.forEach(s => { const el = $('#sl_' + s.k), v = s.get(UI.cfg); el.value = v; $('#o_' + s.k).textContent = s.f(v); });
+    $('#rule').value = UI.cfg.rule; $('#seed').value = UI.cfg.seed;
+    document.querySelectorAll('.preset').forEach(b => {
+      const pc = E.presetCfg(b.dataset.preset, Object.assign({}, E.DEFAULTS, { horizon: UI.cfg.horizon, seed: UI.cfg.seed }));
+      pc.cap = Object.assign({}, E.DEFAULTS.cap, pc.cap);
+      b.setAttribute('aria-pressed', String(sameSettings(UI.cfg, pc)));
+    });
+  }
+  let pending = false;
+  function changed() {
+    syncPanel();
+    if (pending) return; pending = true;
+    requestAnimationFrame(() => { pending = false; recompute(); renderScrub(); renderView(); persist(); });
+  }
+
+  /* ---------------- events ---------------- */
+  document.addEventListener('click', e => {
+    const t = e.target.closest('button,[data-tab]'); if (!t) return;
+    if (t.dataset.tab) { UI.tab = t.dataset.tab; renderTabs(); renderView(); return; }
+    if (t.dataset.preset) { const c = E.presetCfg(t.dataset.preset, Object.assign({}, E.DEFAULTS, { horizon: UI.cfg.horizon, seed: UI.cfg.seed })); c.cap = Object.assign({}, E.DEFAULTS.cap, c.cap); UI.cfg = c; changed(); return; }
+    if (t.dataset.ofilter) { UI.oFilter = t.dataset.ofilter; renderView(); return; }
+    if (t.dataset.pofilter) { UI.poFilter = t.dataset.pofilter; renderView(); return; }
+    if (t.id === 'play') { UI.playing ? stopPlay() : startPlay(); return; }
+    if (t.id === 'reseed') { UI.cfg.seed = 1 + Math.floor(Math.random() * 9999); changed(); return; }
+    if (t.id === 'reset') { UI.cfg = Object.assign({}, E.DEFAULTS, { seed: UI.cfg.seed, horizon: UI.cfg.horizon }); UI.cfg.cap = Object.assign({}, E.DEFAULTS.cap); changed(); return; }
+    if (t.id === 'rPrint') { window.print(); return; }
+    if (t.id === 'rOrders') { download('loomline-orders.csv', ordersCsv(), 'text/csv'); return; }
+    if (t.id === 'rPos') { download('loomline-purchase-orders.csv', posCsv(), 'text/csv'); return; }
+    if (t.id === 'rDaily') { download('loomline-daily.csv', dailyCsv(), 'text/csv'); return; }
+    if (t.id === 'rSave') { saveScenario(); return; }
+    if (t.id === 'rLoad') { $('#fileScenario').click(); return; }
+    if (t.id === 'dImport') { $('#fileData').click(); return; }
+    if (t.id === 'dExport') { download('loomline-data.json', JSON.stringify({ app: 'loomline', kind: 'data', data: UI.draft || E.getData() }, null, 2), 'application/json'); return; }
+    if (t.id === 'dDiscard') { UI.draft = null; UI.dataError = ''; renderView(); return; }
+    if (t.id === 'dReset') { E.resetData(); UI.draft = null; UI.dataError = ''; afterDataChange('Demo data restored'); return; }
+    if (t.id === 'dApply') {
+      try { E.setData(UI.draft); UI.draft = null; UI.dataError = ''; afterDataChange('Data applied'); }
+      catch (err) { UI.dataError = err.message; renderView(); toast(err.message, true); }
+      return;
+    }
+    if (t.id === 'btnSettings') { const p = $('#panel'); const o = p.classList.toggle('open'); t.setAttribute('aria-expanded', String(o)); return; }
+  });
+  function afterDataChange(msg) {
+    stopPlay(); recompute(); renderChip(); renderScrub(); renderView(); persist(); if (msg) toast(msg);
+  }
+  function setDraft(t) {
+    const parts = t.dataset.path.split('.'); let o = UI.draft;
+    for (let i = 0; i < parts.length - 1; i++) o = o[parts[i]];
+    const k = parts[parts.length - 1];
+    if (t.dataset.lines) o[k] = t.value.split('\n').map(x => x.trim()).filter(Boolean);
+    else if (t.dataset.text) o[k] = t.value;
+    else { const v = t.value === '' ? NaN : parseFloat(t.value); o[k] = v / (+t.dataset.scale || 1); }
+    const ss = $('#shareSum'); if (ss) ss.textContent = n0(UI.draft.products.reduce((a, p) => a + (+p.share || 0), 0) * 100);
+  }
+  function readFile(file, fn) {
+    if (!file) return;
+    const r = new FileReader();
+    r.onload = () => { try { fn(String(r.result)); } catch (err) { toast('Could not load file: ' + err.message, true); } };
+    r.onerror = () => toast('Could not read the file', true);
+    r.readAsText(file);
+  }
+  document.addEventListener('input', e => {
+    const t = e.target;
+    if (t.dataset && t.dataset.path) { setDraft(t); return; }
+    if (t.id === 'dayRange') { const v = +t.value; stopPlay(); setDay(v); return; }
+    if (t.dataset && t.dataset.sl) { SL.find(s => s.k === t.dataset.sl).set(UI.cfg, +t.value); changed(); return; }
+    if (t.id === 'seed') { const v = parseInt(t.value, 10); if (v >= 1) { UI.cfg.seed = v; changed(); } return; }
+  });
+  document.addEventListener('change', e => {
+    if (e.target.id === 'rule') { UI.cfg.rule = e.target.value; changed(); }
+    if (e.target.id === 'oProd') { UI.oProd = e.target.value; renderView(); }
+    if (e.target.id === 'fileScenario') { readFile(e.target.files[0], txt => { loadScenario(txt); e.target.value = ''; syncPanel(); afterDataChange('Scenario loaded'); changed(); }); e.target.value = ''; }
+    if (e.target.id === 'fileData') {
+      readFile(e.target.files[0], txt => { const o = JSON.parse(txt); E.setData(o.data || o); UI.draft = null; UI.dataError = ''; afterDataChange('Data imported'); });
+      e.target.value = '';
+    }
+  });
+  let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(renderView, 120); });
+
+  /* ---------------- boot ---------------- */
+  restore(); recompute(); buildPanel(); renderTabs(); renderChip(); renderScrub(); renderView();
+  window.__loomline = { UI, E };
+})();
+</script>

@@ -1,0 +1,11 @@
+{
+  "name": "loomline",
+  "version": "1.0.0",
+  "description": "Textile mill simulation: orders, production, inventory, procurement and what-if scenarios",
+  "private": true,
+  "scripts": {
+    "build": "sh build.sh",
+    "test": "node tests/test.js",
+    "check": "sh build.sh && node tests/test.js"
+  }
+}
