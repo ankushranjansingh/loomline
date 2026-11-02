@@ -91,6 +91,7 @@ button { cursor: pointer; }
 .tab:hover { color: var(--ink); }
 .tab[aria-selected=true] { color: var(--ink); border-bottom-color: var(--accent); }
 
+.tab-help { margin: -6px 0 14px; color: var(--ink-3); font-size: 13px; }
 /* cards and tiles */
 .stack { display: flex; flex-direction: column; gap: 16px; }
 .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
@@ -208,7 +209,7 @@ textarea.num { font: inherit; resize: vertical; }
 .toast[hidden] { display: none; }
 @media print {
   body { background: #fff; }
-  .top, .panel, .tabs, .no-print, .toast, body::before { display: none !important; }
+  .top, .panel, .tabs, .tab-help, .no-print, .toast, body::before { display: none !important; }
   .layout { display: block; padding: 0; } .wrap { max-width: none; padding: 0; }
   .card, .kpi { box-shadow: none; break-inside: avoid; }
   .grid2 { grid-template-columns: 1fr 1fr; }
@@ -292,6 +293,7 @@ tr.grp td:first-child { background: var(--surface-2); }
     <aside class="panel" id="panel" aria-label="Scenario settings"></aside>
     <main>
       <nav class="tabs" role="tablist" id="tabs"></nav>
+      <p class="tab-help" id="tabHelp"></p>
       <section id="view" aria-live="off"></section>
     </main>
   </div>
@@ -1414,7 +1416,18 @@ tr.grp td:first-child { background: var(--surface-2); }
   }
   const VIEWS = { overview: ['Overview', viewOverview], details: ['Details', viewDetails], compare: ['Compare scenarios', viewCompare], report: ['Report', viewReport], data: ['Your data', viewData] };
 
+  const HELP = {
+    overview: 'Check how the factory is doing on any day.',
+    details: { orders: 'Every order and where it is now. Find out which are late and why.', production: 'How busy each stage is, how long its queue is, and where output is lost.', inventory: 'Stock of each material, and what is running low.', procurement: 'Purchase orders, and which suppliers are late.' },
+    compare: 'Choose between options. Every scenario is run 16 times and shown side by side.',
+    report: 'Share your results: findings, profit and loss, and tested improvements. Print it or export CSV files.',
+    data: 'Model your own factory. Enter your capacities, prices, recipes and suppliers.'
+  };
+  function renderHelp() {
+    const h = HELP[UI.tab]; $('#tabHelp').textContent = typeof h === 'string' ? h : h[UI.sub];
+  }
   function renderView() {
+    renderHelp();
     const host = $('#view');
     const keep = host.scrollTop;
     const v = VIEWS[UI.tab][1]();

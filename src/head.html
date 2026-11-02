@@ -91,6 +91,7 @@ button { cursor: pointer; }
 .tab:hover { color: var(--ink); }
 .tab[aria-selected=true] { color: var(--ink); border-bottom-color: var(--accent); }
 
+.tab-help { margin: -6px 0 14px; color: var(--ink-3); font-size: 13px; }
 /* cards and tiles */
 .stack { display: flex; flex-direction: column; gap: 16px; }
 .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
@@ -208,7 +209,7 @@ textarea.num { font: inherit; resize: vertical; }
 .toast[hidden] { display: none; }
 @media print {
   body { background: #fff; }
-  .top, .panel, .tabs, .no-print, .toast, body::before { display: none !important; }
+  .top, .panel, .tabs, .tab-help, .no-print, .toast, body::before { display: none !important; }
   .layout { display: block; padding: 0; } .wrap { max-width: none; padding: 0; }
   .card, .kpi { box-shadow: none; break-inside: avoid; }
   .grid2 { grid-template-columns: 1fr 1fr; }

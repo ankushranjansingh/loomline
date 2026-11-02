@@ -642,7 +642,18 @@
   }
   const VIEWS = { overview: ['Overview', viewOverview], details: ['Details', viewDetails], compare: ['Compare scenarios', viewCompare], report: ['Report', viewReport], data: ['Your data', viewData] };
 
+  const HELP = {
+    overview: 'Check how the factory is doing on any day.',
+    details: { orders: 'Every order and where it is now. Find out which are late and why.', production: 'How busy each stage is, how long its queue is, and where output is lost.', inventory: 'Stock of each material, and what is running low.', procurement: 'Purchase orders, and which suppliers are late.' },
+    compare: 'Choose between options. Every scenario is run 16 times and shown side by side.',
+    report: 'Share your results: findings, profit and loss, and tested improvements. Print it or export CSV files.',
+    data: 'Model your own factory. Enter your capacities, prices, recipes and suppliers.'
+  };
+  function renderHelp() {
+    const h = HELP[UI.tab]; $('#tabHelp').textContent = typeof h === 'string' ? h : h[UI.sub];
+  }
   function renderView() {
+    renderHelp();
     const host = $('#view');
     const keep = host.scrollTop;
     const v = VIEWS[UI.tab][1]();
