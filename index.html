@@ -1,3 +1,8 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Loomline Factory Simulator</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -104,13 +109,14 @@ button { cursor: pointer; }
 .dl.good { color: var(--p-good-fg); } .dl.bad { color: var(--p-crit-fg); } .dl.neu { color: var(--ink-2); }
 
 /* factory flow */
-.flow { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.flow { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; }
 .cell { border: 1px solid var(--line); border-radius: 10px; padding: 11px; background: var(--surface-2); min-width: 0; position: relative; }
+.cell:not(:last-child)::after { content: '\203A'; position: absolute; right: -12px; top: 50%; transform: translateY(-50%); color: var(--ink-3); font-size: 22px; font-weight: 700; line-height: 1; pointer-events: none; }
 .cell.hot { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-.cell .nm { font-size: 12px; font-weight: 650; display: flex; justify-content: space-between; gap: 6px; }
+.cell .nm { font-size: 12px; font-weight: 650; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 6px; }
 .cell .nm em { font-style: normal; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
-.cell .big { font-size: 20px; font-weight: 650; margin: 6px 0 0; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
-.cell .big small { font-size: 12px; color: var(--ink-3); font-weight: 500; }
+.cell .big { font-size: 19px; font-weight: 650; margin: 6px 0 0; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.cell .big small { display: block; font-size: 12px; color: var(--ink-3); font-weight: 500; letter-spacing: 0; margin-top: 1px; }
 .cell .sm { font-size: 12px; color: var(--ink-3); margin: 2px 0 8px; }
 .bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; margin-bottom: 8px; }
 .bar i { display: block; height: 100%; border-radius: 3px; }
@@ -210,21 +216,59 @@ textarea.num { font: inherit; resize: vertical; }
   .tbl, .tbl.tall { overflow: visible; max-height: none; }
 }
 
+
+/* small screens and wide tables */
+.hide-s { }
+.swipe-hint { color: var(--ink-3); font-size: 12px; margin: 6px 2px 0; }
+.tbl tr { background: var(--surface); }
+.tbl table:not(.kv) td:first-child, .tbl table:not(.kv) th:first-child { position: sticky; left: 0; background: inherit; z-index: 2; box-shadow: 1px 0 0 var(--line-2); }
+.tbl table:not(.kv) th:first-child { z-index: 3; background: var(--surface-2); }
+tr.grp td:first-child { background: var(--surface-2); }
+@media (max-width: 720px) {
+  table.kv, table.kv tbody, table.kv tr, table.kv td { display: block; width: 100%; }
+  table.kv tr { padding: 8px 12px; border-bottom: 1px solid var(--line-2); } table.kv tr:last-child { border-bottom: 0; }
+  table.kv td { padding: 2px 0; border: 0; white-space: normal; }
+  table.kv input.ci { width: 100%; text-align: left; }
+}
+
+@media (max-width: 1200px) {
+  .flow { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cell:not(:last-child)::after { display: none; }
+}
 @media (max-width: 960px) {
   .layout { grid-template-columns: minmax(0, 1fr); }
   .panel { position: static; max-height: none; display: none; }
   .panel.open { display: block; }
   .only-m { display: inline-flex; }
   .grid2 { grid-template-columns: minmax(0, 1fr); }
-  .flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 620px) {
+  .flow { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .cell { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'nm pill' 'big big' 'sm sm' 'bar bar'; align-items: center; column-gap: 8px; padding: 12px 14px; }
+  .cell .nm { grid-area: nm; justify-content: flex-start; gap: 10px; font-size: 14px; }
+  .cell > .pill { grid-area: pill; justify-self: end; }
+  .cell .big { grid-area: big; margin: 6px 0 0; }
+  .cell .big small { display: inline; margin: 0; }
+  .cell .sm { grid-area: sm; margin: 2px 0 8px; }
+  .cell .bar { grid-area: bar; margin-bottom: 0; }
+  .cell:not(:last-child)::after { display: block; content: '\2193'; right: auto; left: 50%; top: auto; bottom: -24px; height: 24px; transform: translateX(-50%); display: flex; align-items: center; font-size: 18px; }
 }
 @media (max-width: 520px) {
+  .hide-s { display: none; }
+  .brand span { display: none; }
+  .top-row { gap: 8px; padding-block: 8px 2px; }
+  .scrub { padding-block: 2px 8px; }
+  .tab { padding: 10px 6px; font-size: 13px; }
+  .card { padding: 14px; }
+  .actions .btn { flex: 1 1 auto; justify-content: center; }
   .scrub-label { min-width: 96px; }
-  .feed li { grid-template-columns: 62px auto; } .feed li > span:last-child { grid-column: 1 / -1; }
+  .feed li { grid-template-columns: 62px auto; } .feed li > span:last-child { grid-column: 1 / -1; } .feed li .pill { justify-self: start; }
   .kpi .v { font-size: 22px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
+</head>
+<body>
 <header class="top">
   <div class="wrap">
     <div class="top-row">
@@ -234,7 +278,7 @@ textarea.num { font: inherit; resize: vertical; }
       </div>
       <span class="demo-chip" id="dataChip">Demo data</span>
       <span class="spacer"></span>
-      <button class="btn only-m" id="btnSettings" aria-expanded="false" aria-controls="panel">Scenario settings</button>
+      <button class="btn only-m" id="btnSettings" aria-expanded="false" aria-controls="panel"><span><span class="hide-s">Scenario </span>Settings</span></button>
     </div>
     <div class="scrub">
       <button class="play" id="play" aria-label="Play simulation"><svg viewBox="0 0 14 14" id="playIcon"><path d="M3 1.5v11l9-5.5z"/></svg></button>
@@ -889,7 +933,7 @@ textarea.num { font: inherit; resize: vertical; }
     o.values.forEach((v, i) => {
       const h = v / ymax * ih, x = m.l + i * bw + 2, w = Math.max(2, bw - 4);
       g += `<path d="M${x} ${m.t + ih} V${m.t + ih - h + 3} Q${x} ${m.t + ih - h} ${x + 3} ${m.t + ih - h} H${x + w - 3} Q${x + w} ${m.t + ih - h} ${x + w} ${m.t + ih - h + 3} V${m.t + ih}Z" style="fill:${o.color(i)};fill-opacity:.95"><title>${esc(o.labels[i])}: ${n0(v)} orders</title></path>`;
-      if (i % o.every === 0) g += `<text class="ax" x="${x + w / 2}" y="${Hh - 10}" text-anchor="middle">${esc(o.labels[i])}</text>`;
+      if (i % (W < 520 ? Math.max(o.every, 2) : o.every) === 0) g += `<text class="ax" x="${x + w / 2}" y="${Hh - 10}" text-anchor="middle">${esc(o.labels[i])}</text>`;
     });
     if (o.axis) g += `<text class="axb" x="${m.l + iw / 2}" y="${Hh}" text-anchor="middle" visibility="hidden">${esc(o.axis)}</text>`;
     host.innerHTML = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="${esc(o.aria || 'Bar chart')}">${g}</svg>`;
@@ -904,10 +948,10 @@ textarea.num { font: inherit; resize: vertical; }
 
   function gantt(host, rows, d) {
     const W = Math.max(300, Math.floor(host.clientWidth || 700)), LW = W < 520 ? 84 : 148, rh = 24, top = 22;
-    const d0 = d - 24, d1 = d + 12, iw = W - LW - 10, Hh = top + rows.length * rh + 8;
+    const narrow = W < 520, d0 = d - (narrow ? 14 : 24), d1 = d + (narrow ? 7 : 12), tickEvery = narrow ? 7 : 4, iw = W - LW - 10, Hh = top + rows.length * rh + 8;
     const X = t => LW + clamp((t - d0) / (d1 - d0), 0, 1) * iw;
     let g = '';
-    for (let t = Math.ceil(d0); t <= d1; t++) if (t >= 1 && ((t - 1) % 4 === 0)) g += `<line class="gl" x1="${X(t)}" x2="${X(t)}" y1="${top - 4}" y2="${Hh - 6}"/><text class="ax" x="${X(t)}" y="12" text-anchor="middle">${dateShort(t)}</text>`;
+    for (let t = Math.ceil(d0); t <= d1; t++) if (t >= 1 && ((t - 1) % tickEvery === 0)) g += `<line class="gl" x1="${X(t)}" x2="${X(t)}" y1="${top - 4}" y2="${Hh - 6}"/><text class="ax" x="${X(t)}" y="12" text-anchor="middle">${dateShort(t)}</text>`;
     g += `<line class="mk" x1="${X(d + 1)}" x2="${X(d + 1)}" y1="${top - 4}" y2="${Hh - 6}"/>`;
     rows.forEach((o, r) => {
       const y = top + r * rh, cy = y + rh / 2;
@@ -1343,11 +1387,11 @@ textarea.num { font: inherit; resize: vertical; }
     const items = D.items.map((it, i) => `<tr><td>${esc(it.name)}<div class="sub">${it.kind === 'raw' ? 'raw material' : 'consumable'}</div></td><td>${esc(it.unit)}</td><td>${cell(`items.${i}.cost`, it.cost, { label: it.name + ' cost' })}</td><td>${cell(`items.${i}.lot`, it.lot, { label: it.name + ' lot size' })}</td><td>${cell(`items.${i}.lt.0`, it.lt[0], { label: it.name + ' lead time' })}</td><td>${cell(`items.${i}.lt.1`, it.lt[1], { label: it.name + ' lead time spread' })}</td><td>${cell(`items.${i}.cover`, it.cover, { label: it.name + ' cover days' })}</td><td>${it.kind === 'cons' ? cell(`items.${i}.rate`, it.rate, { label: it.name + ' use per 100 m' }) : '<span class="sub">via BOM</span>'}</td><td>${cell(`items.${i}.supplier`, it.supplier, { text: 1, label: it.name + ' supplier' })}</td></tr>`).join('');
     const shareSum = D.products.reduce((a, p) => a + (+p.share || 0), 0) * 100;
     const html = `<div class="stack data">
-      <div class="card"><div class="card-h"><h3>Model data</h3><span class="sub">${E.dataInfo().custom ? 'Custom data in use' : 'Demo data in use'}</span></div>
+      <div class="card"><div class="card-h"><h3>Your data</h3><span class="sub">${E.dataInfo().custom ? 'Custom data in use' : 'Demo data in use'}</span></div>
         <p class="lead">Replace the demo numbers with your plant's figures. Changes take effect when you press Apply. The structure (four stages, four products, twelve materials) stays fixed; the numbers, names, supplier names, bill of materials and customers can all change.</p>
         ${UI.dataError ? `<div class="err" role="alert">${esc(UI.dataError)}</div>` : ''}
         <div class="actions"><button class="btn primary" id="dApply">Apply changes</button><button class="btn" id="dDiscard">Discard edits</button><button class="btn" id="dReset">Back to demo data</button><button class="btn" id="dExport">Export data (JSON)</button><button class="btn" id="dImport">Import data (JSON)</button></div></div>
-      <div class="card"><div class="card-h"><h3>Orders and costs</h3></div><div class="tbl"><table><tbody>
+      <div class="card"><div class="card-h"><h3>Orders and costs</h3></div><div class="tbl"><table class="kv"><tbody>
         <tr><td>Orders per working day at 100% demand</td><td>${cell('params.lambda', P.lambda, { label: 'Orders per day' })}</td></tr>
         <tr><td>Stock holding cost (% of value per year)</td><td>${cell('params.holdRate', P.holdRate, { scale: 100, label: 'Holding rate percent' })}</td></tr>
         <tr><td>Cost per purchase order (INR)</td><td>${cell('params.poFee', P.poFee, { label: 'Purchase order fee' })}</td></tr>
@@ -1376,10 +1420,13 @@ textarea.num { font: inherit; resize: vertical; }
     const v = VIEWS[UI.tab][1]();
     const tblScroll = {}; host.querySelectorAll('.tbl.tall').forEach((el, i) => tblScroll[i] = el.scrollTop);
     host.innerHTML = v.html; v.after();
+    host.querySelectorAll('.tbl').forEach(el => {
+      if (el.scrollWidth > el.clientWidth + 2) { const n = document.createElement('div'); n.className = 'swipe-hint'; n.textContent = 'Scroll sideways to see all columns.'; el.after(n); }
+    });
     host.querySelectorAll('.tbl.tall').forEach((el, i) => { if (tblScroll[i]) el.scrollTop = tblScroll[i]; });
   }
   function renderTabs() {
-    $('#tabs').innerHTML = Object.keys(VIEWS).map(k => `<button class="tab" role="tab" data-tab="${k}" aria-selected="${UI.tab === k}">${VIEWS[k][0]}</button>`).join('');
+    $('#tabs').innerHTML = Object.keys(VIEWS).map(k => `<button class="tab" role="tab" data-tab="${k}" aria-selected="${UI.tab === k}">${k === 'compare' ? 'Compare<span class="hide-s"> scenarios</span>' : VIEWS[k][0]}</button>`).join('');
   }
   function renderScrub() {
     const r = $('#dayRange'); r.max = UI.sim.H; r.value = UI.day;
@@ -1411,7 +1458,7 @@ textarea.num { font: inherit; resize: vertical; }
   ];
   function buildPanel() {
     const ctl = s => `<div class="ctl"><div class="ctl-h"><label for="sl_${s.k}">${s.l}</label><output id="o_${s.k}"></output></div><input type="range" id="sl_${s.k}" data-sl="${s.k}" min="${s.min}" max="${s.max}" step="${s.step}"></div>`;
-    let h = `<h2>Scenarios</h2><div class="presets">${E.PRESETS.map(p => `<button class="preset" data-preset="${p.id}" aria-pressed="false"><b>${esc(p.name)}</b><small>${esc(p.desc)}</small></button>`).join('')}</div><h2>Or adjust</h2>`;
+    let h = `<button class="btn primary only-m" id="panelDone" style="width:100%;justify-content:center;margin-bottom:14px">Show results</button><h2>Scenarios</h2><div class="presets">${E.PRESETS.map(p => `<button class="preset" data-preset="${p.id}" aria-pressed="false"><b>${esc(p.name)}</b><small>${esc(p.desc)}</small></button>`).join('')}</div><h2>Or adjust</h2>`;
     SL.filter(s => !s.adv).forEach(s => { h += ctl(s); });
     h += `<details class="adv"><summary>More settings</summary>`;
     SL.filter(s => s.adv).forEach(s => { if (s.ag) h += `<h2>${s.ag}</h2>`; h += ctl(s); });
@@ -1442,7 +1489,8 @@ textarea.num { font: inherit; resize: vertical; }
   document.addEventListener('click', e => {
     const t = e.target.closest('button,[data-tab]'); if (!t) return;
     if (t.dataset.tab) { UI.tab = t.dataset.tab; renderTabs(); renderView(); return; }
-    if (t.dataset.preset) { const c = E.presetCfg(t.dataset.preset, Object.assign({}, E.DEFAULTS, { horizon: UI.cfg.horizon, seed: UI.cfg.seed })); c.cap = Object.assign({}, E.DEFAULTS.cap, c.cap); UI.cfg = c; changed(); return; }
+    if (t.id === 'panelDone') { closePanel(); window.scrollTo(0, 0); return; }
+    if (t.dataset.preset) { const c = E.presetCfg(t.dataset.preset, Object.assign({}, E.DEFAULTS, { horizon: UI.cfg.horizon, seed: UI.cfg.seed })); c.cap = Object.assign({}, E.DEFAULTS.cap, c.cap); UI.cfg = c; changed(); if (window.innerWidth <= 960) { closePanel(); window.scrollTo(0, 0); } return; }
     if (t.dataset.sub) { UI.sub = t.dataset.sub; renderView(); return; }
     if (t.dataset.ofilter) { UI.oFilter = t.dataset.ofilter; renderView(); return; }
     if (t.dataset.pofilter) { UI.poFilter = t.dataset.pofilter; renderView(); return; }
@@ -1466,6 +1514,7 @@ textarea.num { font: inherit; resize: vertical; }
     }
     if (t.id === 'btnSettings') { const p = $('#panel'); const o = p.classList.toggle('open'); t.setAttribute('aria-expanded', String(o)); return; }
   });
+  function closePanel() { const p = $('#panel'), b = $('#btnSettings'); p.classList.remove('open'); b.setAttribute('aria-expanded', 'false'); }
   function afterDataChange(msg) {
     stopPlay(); recompute(); renderChip(); renderScrub(); renderView(); persist(); if (msg) toast(msg);
   }
@@ -1508,3 +1557,4 @@ textarea.num { font: inherit; resize: vertical; }
   window.__loomline = { UI, E };
 })();
 </script>
+</body></html>

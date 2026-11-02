@@ -161,7 +161,7 @@
     o.values.forEach((v, i) => {
       const h = v / ymax * ih, x = m.l + i * bw + 2, w = Math.max(2, bw - 4);
       g += `<path d="M${x} ${m.t + ih} V${m.t + ih - h + 3} Q${x} ${m.t + ih - h} ${x + 3} ${m.t + ih - h} H${x + w - 3} Q${x + w} ${m.t + ih - h} ${x + w} ${m.t + ih - h + 3} V${m.t + ih}Z" style="fill:${o.color(i)};fill-opacity:.95"><title>${esc(o.labels[i])}: ${n0(v)} orders</title></path>`;
-      if (i % o.every === 0) g += `<text class="ax" x="${x + w / 2}" y="${Hh - 10}" text-anchor="middle">${esc(o.labels[i])}</text>`;
+      if (i % (W < 520 ? Math.max(o.every, 2) : o.every) === 0) g += `<text class="ax" x="${x + w / 2}" y="${Hh - 10}" text-anchor="middle">${esc(o.labels[i])}</text>`;
     });
     if (o.axis) g += `<text class="axb" x="${m.l + iw / 2}" y="${Hh}" text-anchor="middle" visibility="hidden">${esc(o.axis)}</text>`;
     host.innerHTML = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="${esc(o.aria || 'Bar chart')}">${g}</svg>`;
@@ -176,10 +176,10 @@
 
   function gantt(host, rows, d) {
     const W = Math.max(300, Math.floor(host.clientWidth || 700)), LW = W < 520 ? 84 : 148, rh = 24, top = 22;
-    const d0 = d - 24, d1 = d + 12, iw = W - LW - 10, Hh = top + rows.length * rh + 8;
+    const narrow = W < 520, d0 = d - (narrow ? 14 : 24), d1 = d + (narrow ? 7 : 12), tickEvery = narrow ? 7 : 4, iw = W - LW - 10, Hh = top + rows.length * rh + 8;
     const X = t => LW + clamp((t - d0) / (d1 - d0), 0, 1) * iw;
     let g = '';
-    for (let t = Math.ceil(d0); t <= d1; t++) if (t >= 1 && ((t - 1) % 4 === 0)) g += `<line class="gl" x1="${X(t)}" x2="${X(t)}" y1="${top - 4}" y2="${Hh - 6}"/><text class="ax" x="${X(t)}" y="12" text-anchor="middle">${dateShort(t)}</text>`;
+    for (let t = Math.ceil(d0); t <= d1; t++) if (t >= 1 && ((t - 1) % tickEvery === 0)) g += `<line class="gl" x1="${X(t)}" x2="${X(t)}" y1="${top - 4}" y2="${Hh - 6}"/><text class="ax" x="${X(t)}" y="12" text-anchor="middle">${dateShort(t)}</text>`;
     g += `<line class="mk" x1="${X(d + 1)}" x2="${X(d + 1)}" y1="${top - 4}" y2="${Hh - 6}"/>`;
     rows.forEach((o, r) => {
       const y = top + r * rh, cy = y + rh / 2;
@@ -615,11 +615,11 @@
     const items = D.items.map((it, i) => `<tr><td>${esc(it.name)}<div class="sub">${it.kind === 'raw' ? 'raw material' : 'consumable'}</div></td><td>${esc(it.unit)}</td><td>${cell(`items.${i}.cost`, it.cost, { label: it.name + ' cost' })}</td><td>${cell(`items.${i}.lot`, it.lot, { label: it.name + ' lot size' })}</td><td>${cell(`items.${i}.lt.0`, it.lt[0], { label: it.name + ' lead time' })}</td><td>${cell(`items.${i}.lt.1`, it.lt[1], { label: it.name + ' lead time spread' })}</td><td>${cell(`items.${i}.cover`, it.cover, { label: it.name + ' cover days' })}</td><td>${it.kind === 'cons' ? cell(`items.${i}.rate`, it.rate, { label: it.name + ' use per 100 m' }) : '<span class="sub">via BOM</span>'}</td><td>${cell(`items.${i}.supplier`, it.supplier, { text: 1, label: it.name + ' supplier' })}</td></tr>`).join('');
     const shareSum = D.products.reduce((a, p) => a + (+p.share || 0), 0) * 100;
     const html = `<div class="stack data">
-      <div class="card"><div class="card-h"><h3>Model data</h3><span class="sub">${E.dataInfo().custom ? 'Custom data in use' : 'Demo data in use'}</span></div>
+      <div class="card"><div class="card-h"><h3>Your data</h3><span class="sub">${E.dataInfo().custom ? 'Custom data in use' : 'Demo data in use'}</span></div>
         <p class="lead">Replace the demo numbers with your plant's figures. Changes take effect when you press Apply. The structure (four stages, four products, twelve materials) stays fixed; the numbers, names, supplier names, bill of materials and customers can all change.</p>
         ${UI.dataError ? `<div class="err" role="alert">${esc(UI.dataError)}</div>` : ''}
         <div class="actions"><button class="btn primary" id="dApply">Apply changes</button><button class="btn" id="dDiscard">Discard edits</button><button class="btn" id="dReset">Back to demo data</button><button class="btn" id="dExport">Export data (JSON)</button><button class="btn" id="dImport">Import data (JSON)</button></div></div>
-      <div class="card"><div class="card-h"><h3>Orders and costs</h3></div><div class="tbl"><table><tbody>
+      <div class="card"><div class="card-h"><h3>Orders and costs</h3></div><div class="tbl"><table class="kv"><tbody>
         <tr><td>Orders per working day at 100% demand</td><td>${cell('params.lambda', P.lambda, { label: 'Orders per day' })}</td></tr>
         <tr><td>Stock holding cost (% of value per year)</td><td>${cell('params.holdRate', P.holdRate, { scale: 100, label: 'Holding rate percent' })}</td></tr>
         <tr><td>Cost per purchase order (INR)</td><td>${cell('params.poFee', P.poFee, { label: 'Purchase order fee' })}</td></tr>
@@ -648,10 +648,13 @@
     const v = VIEWS[UI.tab][1]();
     const tblScroll = {}; host.querySelectorAll('.tbl.tall').forEach((el, i) => tblScroll[i] = el.scrollTop);
     host.innerHTML = v.html; v.after();
+    host.querySelectorAll('.tbl').forEach(el => {
+      if (el.scrollWidth > el.clientWidth + 2) { const n = document.createElement('div'); n.className = 'swipe-hint'; n.textContent = 'Scroll sideways to see all columns.'; el.after(n); }
+    });
     host.querySelectorAll('.tbl.tall').forEach((el, i) => { if (tblScroll[i]) el.scrollTop = tblScroll[i]; });
   }
   function renderTabs() {
-    $('#tabs').innerHTML = Object.keys(VIEWS).map(k => `<button class="tab" role="tab" data-tab="${k}" aria-selected="${UI.tab === k}">${VIEWS[k][0]}</button>`).join('');
+    $('#tabs').innerHTML = Object.keys(VIEWS).map(k => `<button class="tab" role="tab" data-tab="${k}" aria-selected="${UI.tab === k}">${k === 'compare' ? 'Compare<span class="hide-s"> scenarios</span>' : VIEWS[k][0]}</button>`).join('');
   }
   function renderScrub() {
     const r = $('#dayRange'); r.max = UI.sim.H; r.value = UI.day;
@@ -683,7 +686,7 @@
   ];
   function buildPanel() {
     const ctl = s => `<div class="ctl"><div class="ctl-h"><label for="sl_${s.k}">${s.l}</label><output id="o_${s.k}"></output></div><input type="range" id="sl_${s.k}" data-sl="${s.k}" min="${s.min}" max="${s.max}" step="${s.step}"></div>`;
-    let h = `<h2>Scenarios</h2><div class="presets">${E.PRESETS.map(p => `<button class="preset" data-preset="${p.id}" aria-pressed="false"><b>${esc(p.name)}</b><small>${esc(p.desc)}</small></button>`).join('')}</div><h2>Or adjust</h2>`;
+    let h = `<button class="btn primary only-m" id="panelDone" style="width:100%;justify-content:center;margin-bottom:14px">Show results</button><h2>Scenarios</h2><div class="presets">${E.PRESETS.map(p => `<button class="preset" data-preset="${p.id}" aria-pressed="false"><b>${esc(p.name)}</b><small>${esc(p.desc)}</small></button>`).join('')}</div><h2>Or adjust</h2>`;
     SL.filter(s => !s.adv).forEach(s => { h += ctl(s); });
     h += `<details class="adv"><summary>More settings</summary>`;
     SL.filter(s => s.adv).forEach(s => { if (s.ag) h += `<h2>${s.ag}</h2>`; h += ctl(s); });
@@ -714,7 +717,8 @@
   document.addEventListener('click', e => {
     const t = e.target.closest('button,[data-tab]'); if (!t) return;
     if (t.dataset.tab) { UI.tab = t.dataset.tab; renderTabs(); renderView(); return; }
-    if (t.dataset.preset) { const c = E.presetCfg(t.dataset.preset, Object.assign({}, E.DEFAULTS, { horizon: UI.cfg.horizon, seed: UI.cfg.seed })); c.cap = Object.assign({}, E.DEFAULTS.cap, c.cap); UI.cfg = c; changed(); return; }
+    if (t.id === 'panelDone') { closePanel(); window.scrollTo(0, 0); return; }
+    if (t.dataset.preset) { const c = E.presetCfg(t.dataset.preset, Object.assign({}, E.DEFAULTS, { horizon: UI.cfg.horizon, seed: UI.cfg.seed })); c.cap = Object.assign({}, E.DEFAULTS.cap, c.cap); UI.cfg = c; changed(); if (window.innerWidth <= 960) { closePanel(); window.scrollTo(0, 0); } return; }
     if (t.dataset.sub) { UI.sub = t.dataset.sub; renderView(); return; }
     if (t.dataset.ofilter) { UI.oFilter = t.dataset.ofilter; renderView(); return; }
     if (t.dataset.pofilter) { UI.poFilter = t.dataset.pofilter; renderView(); return; }
@@ -738,6 +742,7 @@
     }
     if (t.id === 'btnSettings') { const p = $('#panel'); const o = p.classList.toggle('open'); t.setAttribute('aria-expanded', String(o)); return; }
   });
+  function closePanel() { const p = $('#panel'), b = $('#btnSettings'); p.classList.remove('open'); b.setAttribute('aria-expanded', 'false'); }
   function afterDataChange(msg) {
     stopPlay(); recompute(); renderChip(); renderScrub(); renderView(); persist(); if (msg) toast(msg);
   }

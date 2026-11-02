@@ -1,3 +1,8 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Loomline Factory Simulator</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -104,13 +109,14 @@ button { cursor: pointer; }
 .dl.good { color: var(--p-good-fg); } .dl.bad { color: var(--p-crit-fg); } .dl.neu { color: var(--ink-2); }
 
 /* factory flow */
-.flow { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.flow { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; }
 .cell { border: 1px solid var(--line); border-radius: 10px; padding: 11px; background: var(--surface-2); min-width: 0; position: relative; }
+.cell:not(:last-child)::after { content: '\203A'; position: absolute; right: -12px; top: 50%; transform: translateY(-50%); color: var(--ink-3); font-size: 22px; font-weight: 700; line-height: 1; pointer-events: none; }
 .cell.hot { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-.cell .nm { font-size: 12px; font-weight: 650; display: flex; justify-content: space-between; gap: 6px; }
+.cell .nm { font-size: 12px; font-weight: 650; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 6px; }
 .cell .nm em { font-style: normal; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
-.cell .big { font-size: 20px; font-weight: 650; margin: 6px 0 0; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
-.cell .big small { font-size: 12px; color: var(--ink-3); font-weight: 500; }
+.cell .big { font-size: 19px; font-weight: 650; margin: 6px 0 0; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.cell .big small { display: block; font-size: 12px; color: var(--ink-3); font-weight: 500; letter-spacing: 0; margin-top: 1px; }
 .cell .sm { font-size: 12px; color: var(--ink-3); margin: 2px 0 8px; }
 .bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; margin-bottom: 8px; }
 .bar i { display: block; height: 100%; border-radius: 3px; }
@@ -210,18 +216,56 @@ textarea.num { font: inherit; resize: vertical; }
   .tbl, .tbl.tall { overflow: visible; max-height: none; }
 }
 
+
+/* small screens and wide tables */
+.hide-s { }
+.swipe-hint { color: var(--ink-3); font-size: 12px; margin: 6px 2px 0; }
+.tbl tr { background: var(--surface); }
+.tbl table:not(.kv) td:first-child, .tbl table:not(.kv) th:first-child { position: sticky; left: 0; background: inherit; z-index: 2; box-shadow: 1px 0 0 var(--line-2); }
+.tbl table:not(.kv) th:first-child { z-index: 3; background: var(--surface-2); }
+tr.grp td:first-child { background: var(--surface-2); }
+@media (max-width: 720px) {
+  table.kv, table.kv tbody, table.kv tr, table.kv td { display: block; width: 100%; }
+  table.kv tr { padding: 8px 12px; border-bottom: 1px solid var(--line-2); } table.kv tr:last-child { border-bottom: 0; }
+  table.kv td { padding: 2px 0; border: 0; white-space: normal; }
+  table.kv input.ci { width: 100%; text-align: left; }
+}
+
+@media (max-width: 1200px) {
+  .flow { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cell:not(:last-child)::after { display: none; }
+}
 @media (max-width: 960px) {
   .layout { grid-template-columns: minmax(0, 1fr); }
   .panel { position: static; max-height: none; display: none; }
   .panel.open { display: block; }
   .only-m { display: inline-flex; }
   .grid2 { grid-template-columns: minmax(0, 1fr); }
-  .flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 620px) {
+  .flow { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .cell { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'nm pill' 'big big' 'sm sm' 'bar bar'; align-items: center; column-gap: 8px; padding: 12px 14px; }
+  .cell .nm { grid-area: nm; justify-content: flex-start; gap: 10px; font-size: 14px; }
+  .cell > .pill { grid-area: pill; justify-self: end; }
+  .cell .big { grid-area: big; margin: 6px 0 0; }
+  .cell .big small { display: inline; margin: 0; }
+  .cell .sm { grid-area: sm; margin: 2px 0 8px; }
+  .cell .bar { grid-area: bar; margin-bottom: 0; }
+  .cell:not(:last-child)::after { display: block; content: '\2193'; right: auto; left: 50%; top: auto; bottom: -24px; height: 24px; transform: translateX(-50%); display: flex; align-items: center; font-size: 18px; }
 }
 @media (max-width: 520px) {
+  .hide-s { display: none; }
+  .brand span { display: none; }
+  .top-row { gap: 8px; padding-block: 8px 2px; }
+  .scrub { padding-block: 2px 8px; }
+  .tab { padding: 10px 6px; font-size: 13px; }
+  .card { padding: 14px; }
+  .actions .btn { flex: 1 1 auto; justify-content: center; }
   .scrub-label { min-width: 96px; }
-  .feed li { grid-template-columns: 62px auto; } .feed li > span:last-child { grid-column: 1 / -1; }
+  .feed li { grid-template-columns: 62px auto; } .feed li > span:last-child { grid-column: 1 / -1; } .feed li .pill { justify-self: start; }
   .kpi .v { font-size: 22px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
+</head>
+<body>

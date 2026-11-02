@@ -161,7 +161,7 @@ test('a very high order rate still runs', () => {
 console.log('Build');
 test('index.html is up to date with src/', () => {
   const r = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
-  const built = r('src/head.html') + r('src/body.html') + '<script>\n' + r('src/engine.js') + '</script>\n<script>\n' + r('src/app.js') + '</script>\n';
+  const built = r('src/head.html') + r('src/body.html') + '<script>\n' + r('src/engine.js') + '</script>\n<script>\n' + r('src/app.js') + '</script>\n</body></html>\n';
   assert(built === r('index.html'), 'run ./build.sh');
 });
 
